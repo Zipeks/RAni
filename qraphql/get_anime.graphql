@@ -1,0 +1,14 @@
+query GetAnime($id: Int!) {
+    Media(id: $id, type: ANIME) {
+        id
+        title {
+            romaji
+            english
+            native
+        }
+        status
+        season
+        seasonInt
+        episodes
+    }
+}

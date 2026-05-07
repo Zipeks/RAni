@@ -1,0 +1,12 @@
+query GetViewer {
+    Viewer {
+        id
+        name
+        about
+        unreadNotificationCount
+        options {
+            displayAdultContent
+            titleLanguage
+        }
+    }
+}
