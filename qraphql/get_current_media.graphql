@@ -1,0 +1,13 @@
+query GetCurrentMedia($userId: Int, $status: MediaListStatus) {
+  Page {
+    mediaList(userId: $userId, status: $status) {
+      media {
+        id
+        title {
+          userPreferred
+        }
+        type
+      }
+    }
+  }
+}

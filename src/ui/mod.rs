@@ -1,12 +1,12 @@
-mod header;
-mod sidebar;
 mod content;
+mod header;
+mod main_frame;
+mod sidebar;
 
-use ratatui::prelude::*;
 use crate::app::App;
+use ratatui::prelude::*;
 
-pub fn ui(frame: &mut Frame, app: &App) {
-
+pub fn ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -18,5 +18,5 @@ pub fn ui(frame: &mut Frame, app: &App) {
 
     header::draw(frame, chunks[0], app);
 
-
+    main_frame::draw(frame, chunks[1], app);
 }

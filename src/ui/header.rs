@@ -1,8 +1,8 @@
-use ratatui::{prelude::*, widgets::*};
 use crate::app::App;
+use ratatui::{prelude::*, widgets::*};
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &App ) {
-     let header_block = Block::default()
+pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+    let header_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(Color::Cyan));
@@ -23,13 +23,12 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App ) {
         ])
         .split(inner_header_area);
 
-    let header_info = Paragraph::new(Line::from("Rust tui for Anilist")).left_aligned();
+    let header_info = Paragraph::new(Line::from("Rust tui for AniList")).left_aligned();
 
     frame.render_widget(header_info, header[1]);
 
     let spacer = Paragraph::new("│").style(Style::default().fg(Color::DarkGray));
     frame.render_widget(spacer, header[2]);
-
 
     let header_user_info = Paragraph::new({
         if let Some(user) = &app.user {
@@ -46,6 +45,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App ) {
     frame.render_widget(spacer, header[4]);
 
     let header_current_view = Paragraph::new(app.current_view.to_string()).centered();
-    
+
     frame.render_widget(header_current_view, header[3]);
 }

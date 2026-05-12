@@ -1,0 +1,29 @@
+use crate::{
+    app::App,
+    ui::{content, sidebar},
+};
+use ratatui::{layout::Spacing, prelude::*, widgets::*};
+
+pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
+    let main_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let inner_main_area = main_block.inner(area);
+    frame.render_widget(main_block, area);
+
+    let center = Layout::default()
+        .direction(Direction::Horizontal)
+        .spacing(Spacing::Overlap(1))
+        .constraints([
+            Constraint::Percentage(16),
+            Constraint::Percentage(42),
+            Constraint::Percentage(42),
+        ])
+        .split(inner_main_area);
+
+    sidebar::draw(frame, center[0], app);
+
+    content::draw(frame, center[1], app);
+}
