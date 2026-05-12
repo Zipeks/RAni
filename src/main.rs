@@ -1,7 +1,7 @@
 use crate::anilist::AnilistClient;
 use std::error::Error;
 
-use crate::app::{App, run_app, CurrentScreen};
+use crate::app::{App, run_app};
 use dotenv::dotenv;
 use ratatui::Terminal;
 use ratatui::backend::{Backend, CrosstermBackend};
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     } else {
         app.status = Some(String::from("Login error"));
-        app.current_screen = CurrentScreen::Status;
+        // app.current_screen = CurrentScreen::Status;
     }
 
     let res = run_app(&mut terminal, &mut app);

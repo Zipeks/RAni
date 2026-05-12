@@ -3,56 +3,72 @@ use crate::app::MediaType::Anime;
 use crate::app::Season::ANY;
 use chrono::{Datelike, Utc};
 
+use crate::ui::ui;
 use ratatui::Terminal;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::crossterm::event::DisableMouseCapture;
 use ratatui::crossterm::event::{EnableMouseCapture, Event, KeyCode};
 use ratatui::crossterm::{event, execute};
 use std::io;
-use crate::ui::ui;
-pub enum CurrentScreen {
-    Main,
+pub enum ActiveBlock {
+    Menu,
+    List,
+    Details,
+}
+pub enum CurrentView {
+    Home,
     Profile,
-    Search,
-    Media,
-    Exiting,
-    Status
+}
+
+impl CurrentView {
+    pub fn to_string(&self) -> String {
+        match &self {
+            CurrentView::Home => String::from("Home"),
+            CurrentView::Profile => String::from("Profile"),
+        }
+    }
 }
 pub struct User {
     name: String,
     allows_nsfw: Option<bool>,
 }
+
 impl User {
     pub fn get_name(&self) -> &String {
         &self.name
     }
 }
+
 pub struct App {
-    pub current_screen: CurrentScreen,
+    pub active_block: ActiveBlock,
+    pub current_view: CurrentView,
     pub search_settings: SearchSettings,
     pub previous_state: Box<Option<App>>,
     pub user: Option<User>,
-    pub status: Option<String>
+    pub status: Option<String>,
 }
 
 impl App {
     pub fn new() -> App {
         App {
-            current_screen: CurrentScreen::Main,
+            active_block: ActiveBlock::Menu,
+            current_view: CurrentView::Home,
             search_settings: SearchSettings {
                 search_input: String::from(""),
                 media_year: Utc::now().year(),
                 media_season: ANY,
                 media_type: Anime,
-
             },
             previous_state: Box::new(None),
             user: None,
-            status: None
+            status: None,
         }
     }
     pub fn authenticated(&mut self, name: String, allows_nsfw: Option<bool>) {
         self.user = Some(User { name, allows_nsfw })
+    }
+    pub fn get_current_view(&self) -> &CurrentView {
+        &self.current_view
     }
 }
 pub enum MediaType {
@@ -84,52 +100,19 @@ where
                 continue;
             }
 
-            match app.current_screen {
-                CurrentScreen::Main => match key.code {
-                    // KeyCode::Char('e') => {
-                    //     // app.current_screen = CurrentScreen::Editing;
-                    //     // app.currently_editing = Some(CurrentlyEditing::Key);
-                    // }
-                    // // KeyCode::Char('q') => {
-                    //     app.current_screen = CurrentScreen::Exiting;
-                    // }
+            match app.active_block {
+                ActiveBlock::Menu => match key.code {
+                    KeyCode::Char('l') | KeyCode::Enter => app.active_block = ActiveBlock::List,
                     _ => {}
                 },
-                CurrentScreen::Exiting => match key.code {
-                    KeyCode::Char('y') | KeyCode::Char('q') | KeyCode::Enter => {
-                        return Ok(true);
-                    }
-                    KeyCode::Char('n') => {
-                        app.current_screen = CurrentScreen::Main;
-                    }
+                ActiveBlock::List => match key.code {
+                    KeyCode::Char('h') | KeyCode::BackTab => app.active_block = ActiveBlock::Menu,
                     _ => {}
                 },
-
-                CurrentScreen::Status => {
-                    match key.code {
-                        _ => return Ok(true)
-                    }   
-                }
                 _ => {}
             }
-
-            // Universal keybinds
             match key.code {
-                KeyCode::Char(']') => match app.current_screen {
-                    CurrentScreen::Main => app.current_screen = CurrentScreen::Search,
-                    CurrentScreen::Search => app.current_screen = CurrentScreen::Profile,
-                    CurrentScreen::Profile => app.current_screen = CurrentScreen::Main,
-                    _ => {}
-                },
-                KeyCode::Char('[') => match app.current_screen {
-                    CurrentScreen::Main => app.current_screen = CurrentScreen::Profile,
-                    CurrentScreen::Search => app.current_screen = CurrentScreen::Main,
-                    CurrentScreen::Profile => app.current_screen = CurrentScreen::Search,
-                    _ => {}
-                },
-                KeyCode::Char('q') => {
-                    app.current_screen = CurrentScreen::Exiting;
-                }
+                KeyCode::Char('q') => return Ok(true),
                 _ => {}
             }
         }

@@ -90,7 +90,7 @@ impl AnilistClient {
             .data
             .ok_or_else(|| "Brak danych w odpowiedzi".into())
     }
-    
+
     pub async fn get_anime(&self, id: i64) -> Result<get_anime::ResponseData, Box<dyn Error>> {
         let variables = get_anime::Variables { id };
         let request_body = GetAnime::build_query(variables);
