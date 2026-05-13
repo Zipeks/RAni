@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // }
     let (tx, rx) = std::sync::mpsc::channel();
 
-    let res = run_app(&mut terminal, &mut app, client, tx, &rx);
+    let _res = run_app(&mut terminal, &mut app, client, tx, &rx);
 
     disable_raw_mode()?;
     execute!(

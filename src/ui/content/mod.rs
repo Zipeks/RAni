@@ -2,7 +2,7 @@ use crate::app::{ActiveBlock, App, CurrentView};
 use ratatui::{prelude::*, widgets::*};
 
 mod home;
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
     let block = Block::default()
         .borders(Borders::LEFT)
         .border_type(BorderType::Plain)

@@ -15,7 +15,7 @@ pub struct GetAnime;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_current_media.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug, PartialEq, Clone"
 )]
 pub struct GetCurrentMedia;
 
