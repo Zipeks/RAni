@@ -2,10 +2,8 @@ use graphql_client::{GraphQLQuery, Response};
 use reqwest::{Client, header};
 use std::error::Error;
 
-use crate::anilist::{
-    get_current_media::{MediaListStatus, MediaType},
-    // get_media_list::MediaListSort,
-};
+// crate::anilist::{get_user_media_list};
+// crate::anilist::{get_media};
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -15,14 +13,6 @@ use crate::anilist::{
 )]
 
 pub struct GetAnime;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_current_media.graphql",
-    response_derives = "Debug, PartialEq, Clone"
-)]
-pub struct GetCurrentMedia;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -48,6 +38,14 @@ pub struct GetBasicViewer;
     response_derives = "Debug, Clone"
 )]
 pub struct GetUserMediaList;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.json",
+    query_path = "qraphql/get_media.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct GetMedia;
 
 #[derive(Clone)]
 pub struct AnilistClient {
@@ -116,60 +114,11 @@ impl AnilistClient {
         response_body.data.ok_or_else(|| "No data".into())
     }
 
-    pub async fn get_anime(
-        &self,
-        id: i64,
-    ) -> Result<get_anime::ResponseData, Box<dyn Error + Sync + Send>> {
-        let variables = get_anime::Variables { id };
-        let request_body = GetAnime::build_query(variables);
-
-        let res = self
-            .http_client
-            .post(self.api_url)
-            .json(&request_body)
-            .send()
-            .await?;
-
-        let response_body: Response<get_anime::ResponseData> = res.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            return Err(format!("GraphQL Error: {:?}", errors).into());
-        }
-
-        response_body.data.ok_or_else(|| "No data".into())
-    }
-    pub async fn get_current_media(
-        &self,
-        user_id: i64,
-    ) -> Result<get_current_media::ResponseData, Box<dyn Error + Sync + Send>> {
-        let variables = get_current_media::Variables {
-            user_id: Some(user_id),
-            status: Some(get_current_media::MediaListStatus::CURRENT),
-        };
-
-        let request_body = GetCurrentMedia::build_query(variables);
-
-        let res = self
-            .http_client
-            .post(self.api_url)
-            .json(&request_body)
-            .send()
-            .await?;
-
-        let response_body: Response<get_current_media::ResponseData> = res.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            return Err(format!("GraphQL Error: {:?}", errors).into());
-        }
-
-        response_body.data.ok_or_else(|| "No data".into())
-    }
-
     pub async fn get_user_media_list(
         &self,
         user_id: i64,
         status: Option<get_user_media_list::MediaListStatus>,
-        sort: Option<Vec<get_user_media_list::MediaListSort>>, // Zostawiamy czystą sygnaturę!
+        sort: Option<Vec<get_user_media_list::MediaListSort>>,
         page: Option<i64>,
         per_page: Option<i64>,
         type_: get_user_media_list::MediaType,
@@ -196,6 +145,105 @@ impl AnilistClient {
 
         let response_body: graphql_client::Response<get_user_media_list::ResponseData> =
             res.json().await?;
+
+        if let Some(errors) = response_body.errors {
+            return Err(format!("GraphQL Error: {:?}", errors).into());
+        }
+
+        response_body.data.ok_or_else(|| "No data".into())
+    }
+
+    // pub async fn get_media(
+    //     &self,
+    //     type_: get_media::MediaType,
+    //     season: Option<get_media::MediaSeason>,
+    //     season_year: Option<i64>,
+    //     status: Option<Vec<get_media::MediaStatus>>,
+    //     sort: Option<Vec<get_media::MediaSort>>,
+    //     page: Option<i64>,
+    //     per_page: Option<i64>,
+    //     search: Option<String>,
+    //     format: Option<get_media::MediaFormat>,
+    // ) -> Result<get_media::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+    //     let mapped_sort = sort.filter(|s| !s.is_empty()).map(|s| s.into_iter().map(Some).collect());
+    //     let mapped_status = status.filter(|s| !s.is_empty()).map(|s| s.into_iter().map(Some).collect());
+    //     let clean_search = search.filter(|s| !s.trim().is_empty());
+
+    //     let variables = get_media::Variables {
+    //         season,
+    //         season_year,
+    //         status_in: mapped_status,
+    //         sort: mapped_sort,
+    //         page,
+    //         per_page,
+    //         type_: type_,
+    //         search: clean_search,
+    //         format,
+    //     };
+
+    //     let request_body = GetMedia::build_query(variables);
+        
+        
+    //     let res = self
+    //         .http_client
+    //         .post(self.api_url)
+    //         .json(&request_body)
+    //         .send()
+    //         .await?;
+
+    //     let response_body: graphql_client::Response<get_media::ResponseData> = res.json().await?;
+
+    //     if let Some(errors) = response_body.errors {
+    //         return Err(format!("GraphQL Error: {:?}", errors).into());
+    //     }
+
+    //     response_body.data.ok_or_else(|| "No data".into())
+    // }
+    pub async fn get_media(
+        &self,
+        type_: get_media::MediaType,
+        season: Option<get_media::MediaSeason>,
+        season_year: Option<i64>,
+        status: Option<Vec<get_media::MediaStatus>>,
+        sort: Option<Vec<get_media::MediaSort>>,
+        page: Option<i64>,
+        per_page: Option<i64>,
+        search: Option<String>,
+        format: Option<get_media::MediaFormat>,
+    ) -> Result<get_media::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+        let mapped_sort = sort.filter(|s| !s.is_empty()).map(|s| s.into_iter().map(Some).collect());
+        let mapped_status = status.filter(|s| !s.is_empty()).map(|s| s.into_iter().map(Some).collect());
+        let clean_search = search.filter(|s| !s.trim().is_empty());
+
+        let variables = get_media::Variables {
+            season,
+            season_year,
+            status_in: mapped_status,
+            sort: mapped_sort,
+            page,
+            per_page,
+            type_: type_,
+            search: clean_search,
+            format,
+        };
+
+        let request_body = GetMedia::build_query(variables);
+        
+        let mut json_body = serde_json::to_value(&request_body)?;
+
+        // Empty values brakes request for some reason
+        if let Some(vars) = json_body.get_mut("variables").and_then(|v| v.as_object_mut()) {
+            vars.retain(|_, v| !v.is_null());
+        }
+
+        let res = self
+            .http_client
+            .post(self.api_url)
+            .json(&json_body) 
+            .send()
+            .await?;
+
+        let response_body: graphql_client::Response<get_media::ResponseData> = res.json().await?;
 
         if let Some(errors) = response_body.errors {
             return Err(format!("GraphQL Error: {:?}", errors).into());

@@ -1,4 +1,4 @@
-use crate::app::{ActiveBlock, App};
+use crate::{app::App, app_helper_structs::ActiveBlock};
 use ratatui::{prelude::*, widgets::*};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
@@ -16,11 +16,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         .sidebar_items
         .iter()
         .map(|view| {
-            // let text = if *view == app.current_view {
-            //     format!("● {}", view.to_string())
-            // } else {
-            //     format!("● {}", view.to_string())
-            // };
             let text = Line::from(vec![
                 Span::styled("●", Style::default().fg(Color::Cyan)),
                 Span::styled(

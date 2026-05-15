@@ -1,6 +1,7 @@
-use crate::app::{ActiveBlock, App, CurrentView};
-use ratatui::{prelude::*, widgets::*};
+use crate::{app::App, app_helper_structs::CurrentView};
+use ratatui::prelude::*;
 
+mod browse;
 mod draw_media_list;
 mod home;
 pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
@@ -14,6 +15,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         CurrentView::Home => {
             home::draw(frame, area, app);
         }
+        CurrentView::BrowseAnime | CurrentView::BrowseManga => browse::draw(frame, area, app),
         _ => {}
     }
 }

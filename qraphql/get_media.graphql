@@ -1,0 +1,43 @@
+query GetMedia(
+    $season: MediaSeason
+    $seasonYear: Int
+    $type: MediaType!
+    $format: MediaFormat
+    $sort: [MediaSort]
+    $statusIn: [MediaStatus]
+    $search: String
+    $page: Int
+    $perPage: Int
+) {
+    Page(page: $page, perPage: $perPage) {
+        pageInfo {
+            currentPage
+            hasNextPage
+            perPage
+            total
+            lastPage
+        }
+        media(
+            season: $season
+            seasonYear: $seasonYear
+            type: $type
+            format: $format
+            sort: $sort
+            status_in: $statusIn
+            search: $search
+        ) {
+            averageScore
+            id
+            title {
+                userPreferred
+            }
+            type
+            episodes
+            chapters
+            nextAiringEpisode {
+                episode
+                airingAt
+            }
+        }
+    }
+}

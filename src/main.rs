@@ -14,6 +14,7 @@ use std::{env, io};
 
 mod anilist;
 mod app;
+mod app_helper_structs;
 mod keybinds;
 mod ui;
 
@@ -32,18 +33,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let anilist_token = env::var("ANILIST_TOKEN").ok();
     let client = AnilistClient::new(anilist_token.as_deref())?;
 
-    // let viewer_result = client.get_basic_viewer().await;
-
-    // if let Ok(viewer_data) = viewer_result {
-    //     if let Some(viewer) = viewer_data.viewer {
-    //         if let Some(options) = viewer.options {
-    //             app.authenticated(viewer.name, options.display_adult_content);
-    //         }
-    //     }
-    // } else {
-    //     // app.status = Some(String::from("Login error"));
-    //     // app.current_screen = CurrentScreen::Status;
-    // }
     let (tx, rx) = std::sync::mpsc::channel();
 
     let _res = run_app(&mut terminal, &mut app, client, tx, &rx);

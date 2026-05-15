@@ -1,4 +1,4 @@
-use crate::app::{ActiveBlock, App};
+use crate::{app::App, app_helper_structs::ActiveBlock};
 
 use ratatui::{prelude::*, widgets::*};
 

@@ -1,10 +1,10 @@
 use crate::{
     app::App,
-    app_helper_structs::{ActiveBlock, MediaTab},
+    app_helper_structs::{ActiveBlock, CurrentView, MediaTab},
     ui::content::draw_media_list,
 };
-
-use ratatui::{prelude::*, widgets::Paragraph};
+use ratatui::prelude::*;
+use ratatui::widgets::Paragraph; 
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
@@ -18,7 +18,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         return;
     }
     if let Some(ref err) = app.error_message {
-        let p = Paragraph::new(format!("❌ API eror: {}", err))
+        let p = Paragraph::new(format!("❌ API error: {}", err))
             .style(Style::default().fg(Color::Red))
             .centered();
         frame.render_widget(p, area);
@@ -26,24 +26,17 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
     }
 
     let is_center_active = app.active_block == ActiveBlock::Center;
-
-    let (media_items, active_state) = match app.active_tab {
-        MediaTab::Anime => {
-            let items = app
-                .user_anime
-                .as_ref()
-                .and_then(|l| l.items.as_deref())
-                .unwrap_or(&[]);
-            (items, &mut app.user_anime_state)
+    
+    let (media_items, active_state, active_tab) = match app.current_view {
+        CurrentView::BrowseAnime => {
+            let items = app.browse_anime.media.as_ref().and_then(|l| l.items.as_deref()).unwrap_or(&[]);
+            (items, &mut app.browse_anime.state, MediaTab::Anime)
         }
-        MediaTab::Manga => {
-            let items = app
-                .user_manga
-                .as_ref()
-                .and_then(|l| l.items.as_deref())
-                .unwrap_or(&[]);
-            (items, &mut app.user_manga_state)
+        CurrentView::BrowseManga => {
+            let items = app.browse_manga.media.as_ref().and_then(|l| l.items.as_deref()).unwrap_or(&[]);
+            (items, &mut app.browse_manga.state, MediaTab::Manga)
         }
+        _ => return,
     };
 
     draw_media_list::draw(
@@ -52,6 +45,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         media_items,
         is_center_active,
         active_state,
-        app.active_tab,
+        active_tab,
     );
 }

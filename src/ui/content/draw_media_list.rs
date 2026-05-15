@@ -1,5 +1,4 @@
-use crate::app::{MediaListItem, MediaTab};
-use chrono::Utc;
+use crate::app_helper_structs::{MediaListItem, MediaTab};
 use ratatui::{prelude::*, widgets::*};
 
 pub fn draw(
@@ -94,11 +93,6 @@ pub fn draw(
     )
     .highlight_symbol(">> ")
     .row_highlight_style(Style::default().yellow());
-    // .style(
-    //     Style::default()
-    //         .fg(Color::Yellow)
-    //         .add_modifier(Modifier::BOLD),
-    // );
 
     frame.render_stateful_widget(table_widget, area, state);
 }

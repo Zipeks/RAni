@@ -1904,6 +1904,7 @@ dependencies = [
  "graphql_client",
  "ratatui",
  "reqwest",
+ "serde_json",
  "tokio",
  "tui-big-text",
 ]

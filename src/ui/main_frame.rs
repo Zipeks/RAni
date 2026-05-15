@@ -1,5 +1,6 @@
 use crate::{
-    app::{ActiveBlock, App},
+    app::App,
+    app_helper_structs::ActiveBlock,
     ui::{content, sidebar},
 };
 use ratatui::{layout::Spacing, prelude::*, widgets::*};
