@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use crate::anilist::{get_media, get_user_media_list};
 use crate::app_helper_structs::{
-    ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaListItem, MediaTab, MediaType,
+    ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaListItem, MediaType,
     NextAiringEpisode, PageInfo, User, UserMediaList,
 };
 
@@ -25,16 +25,7 @@ pub struct App {
     pub is_loading: bool,
     pub error_message: Option<String>,
 
-    pub user_anime: Option<UserMediaList>,
-    pub user_anime_state: TableState,
-
-    pub user_manga: Option<UserMediaList>,
-    pub user_manga_state: TableState,
-
-    pub active_tab: MediaTab,
-
-    pub browse_anime: BrowseState,
-    pub browse_manga: BrowseState,
+    pub browse_state: BrowseState,
 }
 
 impl App {
@@ -44,25 +35,16 @@ impl App {
 
         App {
             active_block: ActiveBlock::Sidebar,
-            current_view: CurrentView::Home,
+            current_view: CurrentView::UserAnime,
             sidebar_items: CurrentView::ALL.to_vec(),
             sidebar_state: state,
             is_loading: false,
             user: None,
 
             error_message: None,
-            user_anime: None,
-            user_manga: None,
-            user_anime_state: TableState::default(),
-            user_manga_state: TableState::default(),
-            active_tab: MediaTab::Anime,
 
-            browse_anime: BrowseState {
-                media: None,
-                state: TableState::default(),
-                current_category: BrowseCategory::CategoryOne,
-            },
-            browse_manga: BrowseState {
+            browse_state: BrowseState {
+                loaded_view: CurrentView::UserAnime,
                 media: None,
                 state: TableState::default(),
                 current_category: BrowseCategory::CategoryOne,
@@ -96,52 +78,21 @@ impl App {
         })
     }
     pub fn get_current_center_items(&self) -> &[MediaListItem] {
-        match self.current_view {
-            CurrentView::Home => match self.active_tab {
-                MediaTab::Anime => self
-                    .user_anime
-                    .as_ref()
-                    .and_then(|l| l.items.as_deref())
-                    .unwrap_or(&[]),
-                MediaTab::Manga => self
-                    .user_manga
-                    .as_ref()
-                    .and_then(|l| l.items.as_deref())
-                    .unwrap_or(&[]),
-            },
-            CurrentView::BrowseAnime => self
-                .browse_anime
-                .media
-                .as_ref()
-                .and_then(|l| l.items.as_deref())
-                .unwrap_or(&[]),
-            CurrentView::BrowseManga => self
-                .browse_manga
-                .media
-                .as_ref()
-                .and_then(|l| l.items.as_deref())
-                .unwrap_or(&[]),
-            _ => &[],
-        }
+        self.browse_state
+            .media
+            .as_ref()
+            .and_then(|l| l.items.as_deref())
+            .unwrap_or(&[])
     }
+
     pub fn next_center_item(&mut self) {
         let count = self.get_current_center_items().len();
         if count == 0 {
             return;
         }
 
-        let state = match self.current_view {
-            CurrentView::Home => match self.active_tab {
-                MediaTab::Anime => &mut self.user_anime_state,
-                MediaTab::Manga => &mut self.user_manga_state,
-            },
-            CurrentView::BrowseAnime => &mut self.browse_anime.state,
-            CurrentView::BrowseManga => &mut self.browse_manga.state,
-            _ => return,
-        };
-
-        let current = state.selected().unwrap_or(0);
-        state.select(Some((current + 1) % count));
+        let current = self.browse_state.state.selected().unwrap_or(0);
+        self.browse_state.state.select(Some((current + 1) % count));
     }
 
     pub fn previous_center_item(&mut self) {
@@ -150,52 +101,45 @@ impl App {
             return;
         }
 
-        let state = match self.current_view {
-            CurrentView::Home => match self.active_tab {
-                MediaTab::Anime => &mut self.user_anime_state,
-                MediaTab::Manga => &mut self.user_manga_state,
-            },
-            CurrentView::BrowseAnime => &mut self.browse_anime.state,
-            CurrentView::BrowseManga => &mut self.browse_manga.state,
-            _ => return,
-        };
-
-        let current = state.selected().unwrap_or(0);
-        state.select(Some((current + count - 1) % count));
+        let current = self.browse_state.state.selected().unwrap_or(0);
+        self.browse_state
+            .state
+            .select(Some((current + count - 1) % count));
     }
-    pub fn fetch_home_data(
+
+    pub fn fetch_user_media(
         &mut self,
         client: crate::anilist::AnilistClient,
         tx: Sender<AppAction>,
     ) {
-        if self.is_loading || self.user_anime.is_some() || self.user_manga.is_some() {
-            return;
-        }
-
-        use crate::anilist::get_user_media_list::{MediaListStatus, MediaType as GraphQlMediaType};
-
-        self.fetch_user_media_list(
-            client.clone(),
-            tx.clone(),
-            Some(MediaListStatus::CURRENT),
-            None,
-            None,
-            None,
-            GraphQlMediaType::ANIME,
-            MediaType::Anime,
-        );
-
         self.fetch_user_media_list(
             client,
             tx,
-            Some(MediaListStatus::CURRENT),
+            match self.browse_state.current_category {
+                BrowseCategory::CategoryOne => Some(get_user_media_list::MediaListStatus::CURRENT),
+                _ => None,
+            },
             None,
-            None,
-            None,
-            GraphQlMediaType::MANGA,
-            MediaType::Manga,
+            Some(
+                self.browse_state
+                    .media
+                    .as_ref()
+                    .map_or(1, |m| m.page_info.current_page),
+            ),
+            Some(
+                self.browse_state
+                    .media
+                    .as_ref()
+                    .map_or(50, |m| m.page_info.per_page),
+            ),
+            match self.current_view {
+                CurrentView::UserAnime => get_user_media_list::MediaType::ANIME,
+                CurrentView::UserManga => get_user_media_list::MediaType::MANGA,
+                _ => unimplemented!(),
+            },
         );
     }
+
     pub fn fetch_user_media_list(
         &mut self,
         client: crate::anilist::AnilistClient,
@@ -205,7 +149,6 @@ impl App {
         page: Option<i64>,
         per_page: Option<i64>,
         graphql_type: get_user_media_list::MediaType,
-        app_type: MediaType,
     ) {
         let user_id = self.user.as_ref().map(|u| u.id).unwrap_or(0);
         self.is_loading = true;
@@ -223,18 +166,10 @@ impl App {
                 app.is_loading = false;
                 match result {
                     Ok(data) => {
-                        let clean_list = App::to_user_media_list(data, user_id, app_type);
+                        let clean_list = App::to_user_media_list(data, user_id);
 
-                        match app_type {
-                            MediaType::Anime => {
-                                app.user_anime = Some(clean_list);
-                                app.user_anime_state.select_first();
-                            }
-                            MediaType::Manga => {
-                                app.user_manga = Some(clean_list);
-                                app.user_manga_state.select_first();
-                            }
-                        }
+                        app.browse_state.media = Some(clean_list);
+                        app.browse_state.state.select_first();
                     }
                     Err(e) => app.error_message = Some(e.to_string()),
                 }
@@ -244,74 +179,18 @@ impl App {
     }
 
     pub fn next_center_page(&mut self) {
-        match self.current_view {
-            CurrentView::Home => match self.active_tab {
-                MediaTab::Anime => {
-                    if let Some(media) = &mut self.user_anime {
-                        if media.page_info.has_next_page.unwrap_or(false) {
-                            media.page_info.current_page = media.page_info.current_page + 1;
-                        }
-                    }
-                }
-                MediaTab::Manga => {
-                    if let Some(media) = &mut self.user_manga {
-                        if media.page_info.has_next_page.unwrap_or(false) {
-                            media.page_info.current_page = media.page_info.current_page + 1;
-                        }
-                    }
-                }
-            },
-            CurrentView::BrowseAnime => {
-                if let Some(media) = &mut self.browse_anime.media {
-                    if media.page_info.has_next_page.unwrap_or(false) {
-                        media.page_info.current_page = media.page_info.current_page + 1;
-                    }
-                }
+        if let Some(media) = &mut self.browse_state.media {
+            if media.page_info.has_next_page.unwrap_or(false) {
+                media.page_info.current_page = media.page_info.current_page + 1;
             }
-            CurrentView::BrowseManga => {
-                if let Some(media) = &mut self.browse_manga.media {
-                    if media.page_info.has_next_page.unwrap_or(false) {
-                        media.page_info.current_page = media.page_info.current_page + 1;
-                    }
-                }
-            }
-            _ => {}
         }
     }
 
     pub fn previous_center_page(&mut self) {
-        match self.current_view {
-            CurrentView::Home => match self.active_tab {
-                MediaTab::Anime => {
-                    if let Some(media) = &mut self.user_anime {
-                        if media.page_info.current_page > 1 {
-                            media.page_info.current_page = media.page_info.current_page - 1;
-                        }
-                    }
-                }
-                MediaTab::Manga => {
-                    if let Some(media) = &mut self.user_manga {
-                        if media.page_info.current_page > 1 {
-                            media.page_info.current_page = media.page_info.current_page - 1;
-                        }
-                    }
-                }
-            },
-            CurrentView::BrowseAnime => {
-                if let Some(media) = &mut self.browse_anime.media {
-                    if media.page_info.current_page > 1 {
-                        media.page_info.current_page = media.page_info.current_page - 1
-                    }
-                }
+        if let Some(media) = &mut self.browse_state.media {
+            if media.page_info.has_next_page.unwrap_or(false) {
+                media.page_info.current_page = media.page_info.current_page - 1;
             }
-            CurrentView::BrowseManga => {
-                if let Some(media) = &mut self.browse_manga.media {
-                    if media.page_info.current_page > 1 {
-                        media.page_info.current_page = media.page_info.current_page - 1
-                    }
-                }
-            }
-            _ => {}
         }
     }
 
@@ -321,39 +200,31 @@ impl App {
             tx,
             None,
             match self.current_view {
-                CurrentView::BrowseAnime => match self.browse_anime.current_category {
+                CurrentView::BrowseAnime => match self.browse_state.current_category {
                     BrowseCategory::CategoryOne => Some(vec![get_media::MediaSort::TRENDING_DESC]),
                     BrowseCategory::CategoryTwo | BrowseCategory::CategoryThree => {
                         Some(vec![get_media::MediaSort::POPULARITY_DESC])
                     }
-                    _ => todo!(),
+                    _ => unimplemented!(),
                 },
-                CurrentView::BrowseManga => match self.browse_anime.current_category {
+                CurrentView::BrowseManga => match self.browse_state.current_category {
                     BrowseCategory::CategoryOne => Some(vec![get_media::MediaSort::TRENDING_DESC]),
-                    _ => todo!(),
+                    _ => unimplemented!(),
                 },
-                _ => todo!(),
+                _ => unimplemented!(),
             },
-            Some({
-                match self.current_view {
-                    CurrentView::BrowseAnime => {
-                        if let Some(media) = &self.browse_anime.media {
-                            media.page_info.current_page
-                        } else {
-                            1
-                        }
-                    }
-                    CurrentView::BrowseManga => {
-                        if let Some(media) = &self.browse_manga.media {
-                            media.page_info.current_page
-                        } else {
-                            1
-                        }
-                    }
-                    _ => 1,
-                }
-            }),
-            Some(25),
+            Some(
+                self.browse_state
+                    .media
+                    .as_ref()
+                    .map_or(1, |m| m.page_info.current_page),
+            ),
+            Some(
+                self.browse_state
+                    .media
+                    .as_ref()
+                    .map_or(50, |m| m.page_info.per_page),
+            ),
             match self.current_view {
                 CurrentView::BrowseAnime => get_media::MediaType::ANIME,
                 CurrentView::BrowseManga => get_media::MediaType::MANGA,
@@ -415,16 +286,8 @@ impl App {
                     Ok(data) => {
                         let clean_list = App::browse_media_to_user_list(data, app_type);
 
-                        match app_type {
-                            MediaType::Anime => {
-                                app.browse_anime.media = Some(clean_list);
-                                app.browse_anime.state.select_first();
-                            }
-                            MediaType::Manga => {
-                                app.browse_manga.media = Some(clean_list);
-                                app.browse_manga.state.select_first();
-                            }
-                        }
+                        app.browse_state.media = Some(clean_list);
+                        app.browse_state.state.select_first();
                     }
                     Err(e) => app.error_message = Some(e.to_string()),
                 }
@@ -436,7 +299,6 @@ impl App {
     pub fn to_user_media_list(
         data: get_user_media_list::ResponseData,
         user_id: i64,
-        type_: MediaType,
     ) -> UserMediaList {
         let mut page_info = PageInfo {
             current_page: 1,
@@ -466,10 +328,10 @@ impl App {
                         .and_then(|t| t.user_preferred.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
 
-                    let total = m.media.as_ref().and_then(|x| match type_ {
-                        MediaType::Anime => x.episodes,
-                        MediaType::Manga => x.chapters,
+                    let total = m.media.as_ref().and_then(|x| {
+                        Some(x.episodes.unwrap_or_else(|| 0) + x.chapters.unwrap_or_else(|| 0))
                     });
+
                     let next_episode = m
                         .media
                         .as_ref()
@@ -496,7 +358,6 @@ impl App {
         UserMediaList {
             page_info,
             user_id,
-            type_,
             items: Some(items),
         }
     }
@@ -559,7 +420,6 @@ impl App {
         UserMediaList {
             page_info,
             user_id: 0,
-            type_,
             items: Some(items),
         }
     }
