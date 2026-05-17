@@ -170,20 +170,32 @@ impl App {
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            let result = client_clone
-                .get_user_media_list(user_id, status, sort, page, per_page, graphql_type)
-                .await;
+            let timeout_duration = Duration::from_secs(5);
+            let fetch_future = client_clone.get_user_media_list(
+                user_id,
+                status,
+                sort,
+                page,
+                per_page,
+                graphql_type,
+            );
 
+            let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
-                match result {
-                    Ok(data) => {
+                match timeout_result {
+                    Ok(Ok(data)) => {
                         let clean_list = App::to_user_media_list(data, user_id);
 
                         app.browse_state.media = Some(clean_list);
                         app.browse_state.state.select_first();
                     }
-                    Err(e) => app.error_message = Some(e.to_string()),
+                    Ok(Err(api_error)) => {
+                        app.error_message = Some(format!("API error: {}", api_error));
+                    }
+                    Err(_) => {
+                        app.error_message = Some("Server timout".to_string());
+                    }
                 }
             });
             let _ = tx_clone.send(action);
@@ -217,11 +229,15 @@ impl App {
                     BrowseCategory::CategoryTwo | BrowseCategory::CategoryThree => {
                         Some(vec![get_media::MediaSort::POPULARITY_DESC])
                     }
-                    _ => unimplemented!(),
+                    _ => None,
                 },
                 CurrentView::BrowseManga => match self.browse_state.current_category {
                     BrowseCategory::CategoryOne => Some(vec![get_media::MediaSort::TRENDING_DESC]),
-                    _ => unimplemented!(),
+                    BrowseCategory::CategoryTwo => {
+                        Some(vec![get_media::MediaSort::POPULARITY_DESC])
+                    }
+                    BrowseCategory::CategoryThree => Some(vec![get_media::MediaSort::SCORE_DESC]),
+                    _ => None,
                 },
                 _ => unimplemented!(),
             },
@@ -304,32 +320,38 @@ impl App {
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            let result = client_clone
-                .get_media(
-                    graphql_type,
-                    season,
-                    season_year,
-                    status,
-                    sort,
-                    page,
-                    per_page,
-                    search,
-                    format,
-                )
-                .await;
+            let timeout_duration = Duration::from_secs(5);
+            let fetch_future = client_clone.get_media(
+                graphql_type,
+                season,
+                season_year,
+                status,
+                sort,
+                page,
+                per_page,
+                search,
+                format,
+            );
+            let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
 
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
-                match result {
-                    Ok(data) => {
-                        let clean_list = App::browse_media_to_user_list(data, app_type);
 
+                match timeout_result {
+                    Ok(Ok(data)) => {
+                        let clean_list = App::browse_media_to_user_list(data, app_type);
                         app.browse_state.media = Some(clean_list);
                         app.browse_state.state.select_first();
                     }
-                    Err(e) => app.error_message = Some(e.to_string()),
+                    Ok(Err(api_error)) => {
+                        app.error_message = Some(format!("API error: {}", api_error));
+                    }
+                    Err(_) => {
+                        app.error_message = Some("Server timout".to_string());
+                    }
                 }
             });
+
             let _ = tx_clone.send(action);
         });
     }
@@ -515,10 +537,13 @@ fn spawn_initial_viewer_fetch(client: crate::anilist::AnilistClient, tx: Sender<
     let tx_clone = tx.clone();
 
     tokio::spawn(async move {
-        let result = client_clone.get_basic_viewer().await;
+        let timeout_duration = Duration::from_secs(5);
+        let fetch_future = client_clone.get_basic_viewer();
 
+        let timeout_result = tokio::time::timeout(timeout_duration,fetch_future).await;
         let action: AppAction = Box::new(move |app: &mut App| {
-            if let Ok(data) = result {
+
+            if let Ok(Ok(data)) = timeout_result {
                 if let Some(viewer) = data.viewer {
                     let allows_nsfw = viewer.options.and_then(|o| o.display_adult_content);
 
