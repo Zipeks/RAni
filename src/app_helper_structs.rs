@@ -116,18 +116,18 @@ pub enum MediaStatus {
     Unknown,
 }
 
-// impl From<get_media_details::MediaStatus for MediaStatus {
-//     fn from(graphql_status: get_media_details::MediaStatus) -> Self {
-//         match graphql_status {
-//             get_media_details::MediaStatus::FINISHED=> MediaStatus::Finished,
-//             get_media_details::MediaStatus::RELEASING=> MediaStatus::Releasing,
-//             get_media_details::MediaStatus::NOT_YET_RELEASED => MediaStatus::NotYetReleased,
-//             get_media_details::MediaStatus::CANCELLED => MediaStatus::Cancelled,
-//             get_media_details::MediaStatus::HIATUS => MediaStatus::Hiatus,
-//             get_media_details::MediaStatus::Other(_) => UserMediaStatus::Unknown,
-//         }
-//     }
-// }
+impl From<get_media_details::MediaStatus> for MediaStatus {
+    fn from(graphql_status: get_media_details::MediaStatus) -> Self {
+        match graphql_status {
+            get_media_details::MediaStatus::FINISHED => MediaStatus::Finished,
+            get_media_details::MediaStatus::RELEASING => MediaStatus::Releasing,
+            get_media_details::MediaStatus::NOT_YET_RELEASED => MediaStatus::NotYetReleased,
+            get_media_details::MediaStatus::CANCELLED => MediaStatus::Cancelled,
+            get_media_details::MediaStatus::HIATUS => MediaStatus::Hiatus,
+            get_media_details::MediaStatus::Other(_) => MediaStatus::Unknown,
+        }
+    }
+}
 
 pub struct UserMediaList {
     pub page_info: PageInfo,
@@ -163,7 +163,7 @@ impl From<get_media::ResponseData> for UserMediaList {
                         .and_then(|t| t.user_preferred.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
 
-                    let total = Some(m.episodes.unwrap_or(0) + m.chapters.unwrap_or(0));
+                    let total = m.episodes.unwrap_or(0) + m.chapters.unwrap_or(0);
 
                     let next_episode =
                         m.next_airing_episode
@@ -221,10 +221,10 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                         .and_then(|x| x.title.as_ref())
                         .and_then(|t| t.user_preferred.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
-
-                    let total = m.media.as_ref().and_then(|x| {
-                        Some(x.episodes.unwrap_or_else(|| 0) + x.chapters.unwrap_or_else(|| 0))
-                    });
+                    let mut total = 0;
+                    if let Some(m) = &m.media {
+                        total = m.episodes.unwrap_or(0) + m.chapters.unwrap_or(0);
+                    };
 
                     let next_episode = m
                         .media
@@ -234,8 +234,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                             airing_at: airing.airing_at,
                             episode: airing.episode,
                         });
-                    let mapped_status: Option<UserMediaStatus> =
-                        m.status.map(|s| s.into());
+                    let mapped_status: Option<UserMediaStatus> = m.status.map(|s| s.into());
 
                     items.push(MediaListItem {
                         id,
@@ -266,7 +265,7 @@ pub struct MediaListItem {
     pub id: i64,
     pub title: String,
     pub progress: Option<i64>,
-    pub total: Option<i64>,
+    pub total: i64,
     pub status: Option<UserMediaStatus>,
     pub next_airing_episode: Option<NextAiringEpisode>,
 }
@@ -358,20 +357,28 @@ impl MediaType {
         }
     }
 }
+pub struct UserMediaDetails {
+    progress: i64,
+    score: f64,
+    status: UserMediaStatus,
+}
 pub struct MediaDetails {
     title: String,
     description: String,
     average_score: i64,
     total: Option<i64>,
     cover_image: String,
-    progress: Option<i64>,
-    user_score: Option<f64>,
-    user_status: Option<UserMediaStatus>,
     season: Season,
     season_yer: i64,
     site_url: String,
-    // media_status:
+    media_status: MediaStatus,
+    user_media_details: Option<UserMediaDetails>,
 }
+// impl From<get_media_details::ResponseData> for MediaDetails {
+// fn from(data: get_user_media_list::ResponseData) -> Self {
+//
+// }
+// }
 
 pub enum Season {
     WINTER,
@@ -398,4 +405,3 @@ impl Season {
         }
     }
 }
-

@@ -30,7 +30,6 @@ pub fn handle_sidebar_events(
             match app.current_view {
                 CurrentView::UserAnime | CurrentView::UserManga => app.fetch_user_media(client, tx),
                 CurrentView::BrowseAnime | CurrentView::BrowseManga => app.fetch_browse(client, tx),
-                _ => {}
             }
         }
         _ => {}

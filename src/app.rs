@@ -1,11 +1,13 @@
+use crate::keybinds;
 use crate::ui::ui;
 use crate::utils::Utils;
-use crate::{keybinds};
 use ratatui::Terminal;
 use ratatui::backend::Backend;
 use ratatui::crossterm::event::{self};
 use ratatui::crossterm::event::{Event, KeyCode};
 use ratatui::widgets::{ListState, TableState};
+use ratatui_image::FontSize;
+use ratatui_image::picker::Picker;
 use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
@@ -27,13 +29,14 @@ pub struct App {
     pub error_message: Option<String>,
 
     pub browse_state: BrowseState,
+    pub image_picker: Picker,
 }
 
 impl App {
     pub fn new() -> App {
         let mut state = ListState::default();
         state.select(Some(0));
-
+        let mut picker = Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks());
         App {
             active_block: ActiveBlock::Sidebar,
             current_view: CurrentView::UserAnime,
@@ -50,6 +53,7 @@ impl App {
                 state: TableState::default(),
                 current_category: BrowseCategory::CategoryOne,
             },
+            image_picker: picker,
         }
     }
 
@@ -185,7 +189,7 @@ impl App {
                 app.is_loading = false;
                 match timeout_result {
                     Ok(Ok(data)) => {
-                        let clean_list =  UserMediaList::from(data);
+                        let clean_list = UserMediaList::from(data);
 
                         app.browse_state.media = Some(clean_list);
                         app.browse_state.state.select_first();
@@ -266,7 +270,9 @@ impl App {
                 }
             },
             match self.browse_state.current_category {
-                BrowseCategory::CategoryTwo => Some(Utils::get_season().to_get_media_media_season()),
+                BrowseCategory::CategoryTwo => {
+                    Some(Utils::get_season().to_get_media_media_season())
+                }
                 BrowseCategory::CategoryThree => {
                     Some(Utils::get_season().next().to_get_media_media_season())
                 }
@@ -282,7 +288,6 @@ impl App {
             None,
         );
     }
-
 
     pub fn fetch_media(
         &mut self,

@@ -16,10 +16,11 @@ pub fn draw(
         .iter()
         .map(|item| {
             let progress = item.progress.unwrap_or(0);
-            let total = item
-                .total
-                .map(|t| t.to_string())
-                .unwrap_or_else(|| "?".to_string());
+            let total = match item.total {
+                0 => "?".to_string(),
+                _ => item.total.to_string(),
+            };
+
             let progress_str = format!("{}/{} ", progress, total);
 
             let airing_str = if let Some(ref airing) = item.next_airing_episode {

@@ -1,7 +1,6 @@
-use chrono::{Datelike};
-use crate::app_helper_structs::{Season};
-pub struct Utils {
-}
+use crate::app_helper_structs::Season;
+use chrono::Datelike;
+pub struct Utils {}
 impl Utils {
     pub fn get_year() -> i64 {
         chrono::Utc::now().year() as i64

@@ -1,6 +1,7 @@
 use graphql_client::{GraphQLQuery, Response};
+use moka::future::Cache;
 use reqwest::{Client, header};
-use std::error::Error;
+use std::{error::Error, time::Duration};
 
 use crate::app_helper_structs::MediaType;
 
@@ -53,6 +54,7 @@ pub struct GetMedia;
 pub struct AnilistClient {
     http_client: Client,
     api_url: &'static str,
+    cache: Cache<String, String>,
 }
 
 impl AnilistClient {
@@ -66,32 +68,15 @@ impl AnilistClient {
             headers.insert(header::AUTHORIZATION, header_value);
         }
         let client = Client::builder().default_headers(headers).build()?;
+        let cache = Cache::builder()
+            .max_capacity(100)
+            .time_to_live(Duration::from_secs(300))
+            .build();
         Ok(Self {
             http_client: client,
             api_url: "https://graphql.anilist.co",
+            cache: cache,
         })
-    }
-
-    pub async fn get_viewer(
-        &self,
-    ) -> Result<get_viewer::ResponseData, Box<dyn Error + Sync + Send>> {
-        let variables = get_viewer::Variables;
-        let request_body = GetViewer::build_query(variables);
-
-        let res = self
-            .http_client
-            .post(self.api_url)
-            .json(&request_body)
-            .send()
-            .await?;
-
-        let response_body: Response<get_viewer::ResponseData> = res.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            return Err(format!("GraphQL Error: {:?}", errors).into());
-        }
-
-        response_body.data.ok_or_else(|| "No data".into())
     }
 
     pub async fn get_basic_viewer(
@@ -138,6 +123,19 @@ impl AnilistClient {
 
         let request_body = GetUserMediaList::build_query(variables);
 
+        let json_body = serde_json::to_value(&request_body)?;
+        let cache_key = json_body.to_string();
+
+        if let Some(cached_response) = self.cache.get(&cache_key).await {
+            let response_body: graphql_client::Response<get_user_media_list::ResponseData> =
+                serde_json::from_str(&cached_response)?;
+
+            if let Some(errors) = response_body.errors {
+                return Err(format!("GraphQL Error: {:?}", errors).into());
+            }
+            return response_body.data.ok_or_else(|| "No data".into());
+        }
+
         let res = self
             .http_client
             .post(self.api_url)
@@ -145,8 +143,14 @@ impl AnilistClient {
             .send()
             .await?;
 
+        let raw_response_text = res.text().await?;
+
+        self.cache
+            .insert(cache_key, raw_response_text.clone())
+            .await;
+
         let response_body: graphql_client::Response<get_user_media_list::ResponseData> =
-            res.json().await?;
+            serde_json::from_str(&raw_response_text)?;
 
         if let Some(errors) = response_body.errors {
             return Err(format!("GraphQL Error: {:?}", errors).into());
@@ -199,6 +203,18 @@ impl AnilistClient {
             vars.retain(|_, v| !v.is_null());
         }
 
+        let cache_key = json_body.to_string();
+
+        if let Some(cached_response) = self.cache.get(&cache_key).await {
+            let response_body: graphql_client::Response<get_media::ResponseData> =
+                serde_json::from_str(&cached_response)?;
+
+            if let Some(errors) = response_body.errors {
+                return Err(format!("GraphQL Error: {:?}", errors).into());
+            }
+            return response_body.data.ok_or_else(|| "No data".into());
+        }
+
         let res = self
             .http_client
             .post(self.api_url)
@@ -206,7 +222,14 @@ impl AnilistClient {
             .send()
             .await?;
 
-        let response_body: graphql_client::Response<get_media::ResponseData> = res.json().await?;
+        let raw_response_text = res.text().await?;
+
+        self.cache
+            .insert(cache_key, raw_response_text.clone())
+            .await;
+
+        let response_body: graphql_client::Response<get_media::ResponseData> =
+            serde_json::from_str(&raw_response_text)?;
 
         if let Some(errors) = response_body.errors {
             return Err(format!("GraphQL Error: {:?}", errors).into());
@@ -228,6 +251,20 @@ impl AnilistClient {
 
         let request_body = GetMediaDetails::build_query(variables);
 
+        let json_body = serde_json::to_value(&request_body)?;
+
+        let cache_key = json_body.to_string();
+
+        if let Some(cached_response) = self.cache.get(&cache_key).await {
+            let response_body: graphql_client::Response<get_media_details::ResponseData> =
+                serde_json::from_str(&cached_response)?;
+
+            if let Some(errors) = response_body.errors {
+                return Err(format!("GraphQL Error: {:?}", errors).into());
+            }
+            return response_body.data.ok_or_else(|| "No data".into());
+        }
+
         let res = self
             .http_client
             .post(self.api_url)
@@ -235,8 +272,14 @@ impl AnilistClient {
             .send()
             .await?;
 
+        let raw_response_text = res.text().await?;
+
+        self.cache
+            .insert(cache_key, raw_response_text.clone())
+            .await;
+
         let response_body: graphql_client::Response<get_media_details::ResponseData> =
-            res.json().await?;
+            serde_json::from_str(&raw_response_text)?;
 
         if let Some(errors) = response_body.errors {
             return Err(format!("GraphQL Error: {:?}", errors).into());
