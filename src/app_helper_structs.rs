@@ -178,8 +178,8 @@ impl From<get_media::ResponseData> for UserMediaList {
                         .and_then(|t| t.user_preferred.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
 
+                    let type_ = m.type_.map(MediaType::from).unwrap_or(MediaType::Unknown);
                     let total = m.episodes.or(m.chapters);
-
                     let next_episode =
                         m.next_airing_episode
                             .as_ref()
@@ -193,6 +193,7 @@ impl From<get_media::ResponseData> for UserMediaList {
                         title,
                         progress: None,
                         total,
+                        type_,
                         average_score,
                         status: None,
                         next_airing_episode: next_episode,
@@ -238,6 +239,11 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                         .and_then(|t| t.user_preferred.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
                     let mut total = None;
+                    let type_ = m.media.as_ref()
+                        .and_then(|med| med.type_.clone()) // Wchodzimy do media -> type_
+                        .map(MediaType::from)
+                        .unwrap_or(MediaType::Unknown);
+                    
                     if let Some(m) = &m.media {
                         total = m.episodes.or(m.chapters);
                     };
@@ -256,6 +262,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                         title,
                         progress: m.progress,
                         total,
+                        type_,
                         average_score: None,
                         status: mapped_status,
                         next_airing_episode: next_episode,
@@ -285,6 +292,7 @@ pub struct MediaListItem {
     pub status: Option<UserMediaStatus>,
     pub average_score: Option<i64>,
     pub next_airing_episode: Option<NextAiringEpisode>,
+    pub type_: MediaType,
 }
 #[derive(PartialEq, Clone, Copy)]
 pub enum BrowseCategory {
@@ -361,58 +369,113 @@ pub struct BrowseState {
     pub current_category: BrowseCategory,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum MediaType {
     Anime,
     Manga,
+    Unknown,
 }
 impl MediaType {
     pub fn to_get_media_details(&self) -> get_media_details::MediaType {
         match self {
             MediaType::Anime => get_media_details::MediaType::ANIME,
             MediaType::Manga => get_media_details::MediaType::MANGA,
+            MediaType::Unknown => get_media_details::MediaType::Other("".to_string()),
+        }
+    }
+}
+impl From<get_media::MediaType> for MediaType {
+    fn from(data: get_media::MediaType) -> Self {
+        match data {
+            get_media::MediaType::ANIME => MediaType::Anime,
+            get_media::MediaType::MANGA => MediaType::Manga,
+            get_media::MediaType::Other(_) => MediaType::Unknown,
+        }
+    }
+}
+impl From<get_user_media_list::MediaType> for MediaType {
+    fn from(data: get_user_media_list::MediaType) -> Self {
+        match data {
+            get_user_media_list::MediaType::ANIME => MediaType::Anime,
+            get_user_media_list::MediaType::MANGA => MediaType::Manga,
+            get_user_media_list::MediaType::Other(_) => MediaType::Unknown,
         }
     }
 }
 pub struct UserMediaDetails {
-    progress: i64,
-    score: f64,
-    status: UserMediaStatus,
+    pub progress: i64,
+    pub score: f64,
+    pub status: UserMediaStatus,
 }
 pub struct MediaDetails {
-    title: String,
-    description: String,
-    average_score: i64,
-    total: Option<i64>,
-    cover_image: String,
-    season: Season,
-    season_year: i64,
-    site_url: String,
-    media_status: MediaStatus,
-    user_media_details: Option<UserMediaDetails>,
+    pub title: String,
+    pub description: String,
+    pub average_score: i64,
+    pub total: Option<i64>,
+    pub cover_image: String,
+    pub season: Season,
+    pub season_year: i64,
+    pub site_url: String,
+    pub media_status: MediaStatus,
+    pub user_media_details: Option<UserMediaDetails>,
 }
 impl From<get_media_details::ResponseData> for MediaDetails {
     fn from(data: get_media_details::ResponseData) -> Self {
-        let media = data.media.unwrap();
+        let media = data.media;
 
-        let title = media.title.map(|t| t.user_preferred.unwrap()).unwrap();
-        let average_score = media.average_score.unwrap();
-        let description = media.description.unwrap();
-        let total = Some(media.chapters.or(media.episodes).unwrap());
-        let cover_image = media.cover_image.map(|m| m.medium.unwrap()).unwrap();
-        let season = Season::from(media.season.unwrap());
-        let season_year = media.season_year.unwrap();
-        let site_url = media.site_url.unwrap();
-        let media_status = MediaStatus::from(media.status.unwrap());
-        let mut user_media_details: Option<UserMediaDetails> = None;
+        let title = media
+            .as_ref()
+            .and_then(|m| m.title.as_ref())
+            .and_then(|t| t.user_preferred.clone())
+            .unwrap_or_else(|| "Unknown Title".to_string());
 
-        if let Some(m) = media.media_list_entry {
+        let average_score = media.as_ref().and_then(|m| m.average_score).unwrap_or(0);
+
+        let description = media
+            .as_ref()
+            .and_then(|m| m.description.clone())
+            .unwrap_or_else(|| "No description available.".to_string());
+
+        let total = media.as_ref().and_then(|m| m.chapters.or(m.episodes));
+
+        let cover_image = media
+            .as_ref()
+            .and_then(|m| m.cover_image.as_ref())
+            .and_then(|c| c.medium.clone())
+            .unwrap_or_default();
+
+        let season = media
+            .as_ref()
+            .and_then(|m| m.season.clone())
+            .map(Season::from)
+            .unwrap_or(Season::Unknown);
+
+        let season_year = media.as_ref().and_then(|m| m.season_year).unwrap_or(0);
+
+        let site_url = media
+            .as_ref()
+            .and_then(|m| m.site_url.clone())
+            .unwrap_or_default();
+
+        let media_status = media
+            .as_ref()
+            .and_then(|m| m.status.clone())
+            .map(MediaStatus::from)
+            .unwrap_or(MediaStatus::Unknown);
+
+        let mut user_media_details = None;
+        if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
             user_media_details = Some(UserMediaDetails {
-                score: m.score.unwrap(),
+                score: m.score.unwrap_or(0.0),
                 progress: m.progress.unwrap_or(0),
-                status: UserMediaStatus::from(m.status.unwrap()),
+                status: m
+                    .status
+                    .clone()
+                    .map(UserMediaStatus::from)
+                    .unwrap_or(UserMediaStatus::Unknown),
             });
         }
+
         MediaDetails {
             title,
             description,
@@ -427,7 +490,6 @@ impl From<get_media_details::ResponseData> for MediaDetails {
         }
     }
 }
-
 pub enum Season {
     WINTER,
     SPRING,

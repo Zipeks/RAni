@@ -70,14 +70,13 @@ pub fn handle_center_events(
 
         KeyCode::Char('j') | KeyCode::Down => app.next_center_item(),
         KeyCode::Char('k') | KeyCode::Up => app.previous_center_item(),
-        KeyCode::Enter => {
-            let current_state = app.browse_state.state;
-            if let Some(selected_index) = current_state.selected() {
+        KeyCode::Enter | KeyCode::Char('l') => {
+            if let Some(selected_index) = app.browse_state.state.selected() {
                 let current_items = app.get_current_center_items();
 
                 if selected_index < current_items.len() {
-                    let selected_id = current_items[selected_index].id;
-                    let selected_title = &current_items[selected_index].title;
+                    app.fetch_media_details(client, tx);
+                    app.active_block = ActiveBlock::Details;
                 }
             }
         }
@@ -94,6 +93,21 @@ pub fn handle_center_events(
                 CurrentView::BrowseAnime | CurrentView::BrowseManga => app.fetch_browse(client, tx),
                 CurrentView::UserAnime | CurrentView::UserManga => app.fetch_user_media(client, tx),
             }
+        }
+        _ => {}
+    }
+}
+
+pub fn handle_details_events(
+    app: &mut App,
+    key: KeyEvent,
+    client: crate::anilist::AnilistClient,
+    tx: Sender<AppAction>,
+) {
+    match key.code {
+        KeyCode::Char('h') | KeyCode::Left => {
+            app.active_block = ActiveBlock::Center;
+            app.media_details = None;
         }
         _ => {}
     }

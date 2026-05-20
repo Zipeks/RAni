@@ -1,7 +1,10 @@
 use crate::{
     app::App,
     app_helper_structs::ActiveBlock,
-    ui::{content, sidebar},
+    ui::{
+        content::{self, browse, details},
+        sidebar,
+    },
 };
 use ratatui::{layout::Spacing, prelude::*, widgets::*};
 
@@ -39,5 +42,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
 
     sidebar::draw(frame, center[0], app);
 
-    content::draw(frame, center[1], app);
+    browse::draw(frame, center[1], app);
+
+    details::draw(frame, center[2], app);
 }

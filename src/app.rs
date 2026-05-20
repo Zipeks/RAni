@@ -7,14 +7,16 @@ use ratatui::crossterm::event::{self};
 use ratatui::crossterm::event::{Event, KeyCode};
 use ratatui::widgets::{ListState, TableState};
 use ratatui_image::FontSize;
-use ratatui_image::picker::Picker;
+use ratatui_image::protocol::StatefulProtocol;
+use ratatui_image::{picker::Picker, protocol::Protocol};
+use std::collections::HashMap;
 use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
 use crate::anilist::{get_media, get_user_media_list};
 use crate::app_helper_structs::{
-    ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaListItem, MediaType,
+    ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaDetails, MediaListItem, MediaType,
     NextAiringEpisode, PageInfo, Season, User, UserMediaList,
 };
 
@@ -30,6 +32,10 @@ pub struct App {
 
     pub browse_state: BrowseState,
     pub image_picker: Picker,
+    pub image_cache: HashMap<i64, StatefulProtocol>,
+    pub currently_fetching_image: Option<i64>,
+
+    pub media_details: Option<MediaDetails>,
 }
 
 impl App {
@@ -54,6 +60,9 @@ impl App {
                 current_category: BrowseCategory::CategoryOne,
             },
             image_picker: picker,
+            image_cache: HashMap::new(),
+            currently_fetching_image: None,
+            media_details: None,
         }
     }
 
@@ -352,6 +361,94 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+    pub fn fetch_media_details(
+        &mut self,
+        client: crate::anilist::AnilistClient,
+        tx: Sender<AppAction>,
+    ) {
+        if self.is_loading {
+            return;
+        }
+        let selected_index = self.browse_state.state.selected();
+        let current_items = self.get_current_center_items();
+
+        let Some(idx) = selected_index else {
+            return;
+        };
+        if idx >= current_items.len() {
+            return;
+        }
+
+        let media_id = current_items[idx].id;
+
+        let media_type = match self.current_view {
+            CurrentView::UserAnime | CurrentView::BrowseAnime => MediaType::Anime,
+            CurrentView::UserManga | CurrentView::BrowseManga => MediaType::Manga,
+        };
+
+        self.is_loading = true;
+        self.error_message = None;
+
+        let client_clone = client.clone();
+        let tx_clone = tx.clone();
+
+        tokio::spawn(async move {
+            let timeout_duration = Duration::from_secs(5);
+            let fetch_future = client_clone.get_media_details(media_id, media_type);
+            let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
+
+            let action: AppAction = Box::new(move |app: &mut App| {
+                app.is_loading = false;
+
+                match timeout_result {
+                    Ok(Ok(data)) => {
+                        let media_details = MediaDetails::from(data);
+                        app.media_details = Some(media_details);
+                    }
+                    Ok(Err(api_error)) => {
+                        app.error_message = Some(format!("API error: {}", api_error));
+                    }
+                    Err(_) => {
+                        app.error_message = Some("Server timeout".to_string());
+                    }
+                }
+            });
+            let _ = tx_clone.send(action);
+        });
+    }
+    pub fn fetch_cover(&mut self, media_id: i64, url: String, tx: Sender<AppAction>) {
+        if self.image_cache.contains_key(&media_id)
+            || self.currently_fetching_image == Some(media_id)
+        {
+            return;
+        }
+
+        self.currently_fetching_image = Some(media_id);
+        let tx_clone = tx.clone();
+
+        tokio::spawn(async move {
+            if let Ok(response) = reqwest::get(&url).await {
+                if let Ok(bytes) = response.bytes().await {
+                    if let Ok(dyn_image) = image::load_from_memory(&bytes) {
+                        let action: AppAction = Box::new(move |app: &mut App| {
+                            let protocol = app.image_picker.new_resize_protocol(dyn_image);
+
+                            app.image_cache.insert(media_id, protocol);
+                            app.currently_fetching_image = None;
+                        });
+
+                        let _ = tx_clone.send(action);
+                        return;
+                    }
+                }
+            }
+
+            let action: AppAction = Box::new(move |app: &mut App| {
+                app.currently_fetching_image = None;
+            });
+            let _ = tx_clone.send(action);
+        });
+    }
 }
 
 pub type AppAction = Box<dyn FnOnce(&mut App) + Send>;
@@ -395,7 +492,9 @@ where
                 ActiveBlock::Center => {
                     keybinds::handle_center_events(app, key, client.clone(), tx.clone())
                 }
-                _ => {}
+                ActiveBlock::Details => {
+                    keybinds::handle_details_events(app, key, client.clone(), tx.clone())
+                }
             }
         }
     }

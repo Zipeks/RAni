@@ -1,8 +1,8 @@
 use crate::app::App;
 use ratatui::prelude::*;
 
-mod browse;
-mod details;
+pub mod browse;
+pub mod details;
 mod draw_media_list;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {

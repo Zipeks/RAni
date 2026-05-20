@@ -12,7 +12,7 @@ use crate::app_helper_structs::MediaType;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_media_details.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug,Clone"
 )]
 
 pub struct GetMediaDetails;
