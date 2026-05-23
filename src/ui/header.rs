@@ -23,7 +23,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         ])
         .split(inner_header_area);
 
-    let header_info = Paragraph::new(Line::from("Rust tui for AniList")).left_aligned();
+    let header_info = Paragraph::new(Line::from("RAni")).left_aligned();
     frame.render_widget(header_info, header[1]);
 
     let spacer = Paragraph::new("│").style(Style::default().fg(Color::DarkGray));

@@ -24,8 +24,8 @@ impl CurrentView {
 impl std::fmt::Display for CurrentView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            CurrentView::UserAnime => "Anime",
-            CurrentView::UserManga => "Manga",
+            CurrentView::UserAnime => "Your Anime",
+            CurrentView::UserManga => "Your Manga",
             CurrentView::BrowseAnime => "Browse Anime",
             CurrentView::BrowseManga => "Browse Manga",
         };
@@ -55,6 +55,7 @@ pub struct PageInfo {
 
 use moka::ops::compute::Op;
 use ratatui::widgets::TableState;
+use serde_json::ser::Formatter;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UserMediaStatus {
@@ -141,6 +142,19 @@ impl From<get_media_details::MediaStatus> for MediaStatus {
             get_media_details::MediaStatus::HIATUS => MediaStatus::Hiatus,
             get_media_details::MediaStatus::Other(_) => MediaStatus::Unknown,
         }
+    }
+}
+impl std::fmt::Display for MediaStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            MediaStatus::Finished => "Finished",
+            MediaStatus::Releasing => "Releasing",
+            MediaStatus::NotYetReleased => "Not yet released",
+            MediaStatus::Cancelled => "Cancelled",
+            MediaStatus::Hiatus => "Hiatus",
+            MediaStatus::Unknown => "Unknown",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -546,7 +560,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
         let cover_image = media
             .as_ref()
             .and_then(|m| m.cover_image.as_ref())
-            .and_then(|c| c.medium.clone())
+            .and_then(|c| c.large.clone())
             .unwrap_or_default();
 
         let season = media
@@ -632,5 +646,18 @@ impl From<get_media_details::MediaSeason> for Season {
             get_media_details::MediaSeason::FALL => Season::FALL,
             _ => Season::Unknown,
         }
+    }
+}
+
+impl std::fmt::Display for Season {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Season::WINTER => "Winter",
+            Season::SPRING => "Spring",
+            Season::SUMMER => "Summer",
+            Season::FALL => "Fall",
+            Season::Unknown => "Unknown",
+        };
+        write!(f, "{}", s)
     }
 }

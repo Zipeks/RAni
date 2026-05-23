@@ -3,7 +3,7 @@ query GetMediaDetails($mediaId: Int!, $type: MediaType!, $format: ScoreFormat) {
     averageScore
     chapters
     coverImage {
-      medium
+      large
     }
     description
     episodes

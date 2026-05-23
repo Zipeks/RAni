@@ -396,7 +396,9 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
-
+    pub fn clean_media_details(&mut self) {
+        self.media_details = None;
+    }
     pub fn fetch_media_details(
         &mut self,
         client: crate::anilist::AnilistClient,
@@ -405,6 +407,7 @@ impl App {
         if self.is_loading {
             return;
         }
+        self.clean_media_details();
         let selected_index = self.browse_state.state.selected();
         let current_items = self.get_current_center_items();
 
@@ -432,7 +435,7 @@ impl App {
             let timeout_duration = Duration::from_secs(5);
             let fetch_future = client_clone.get_media_details(media_id, media_type);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
-            
+
             let tx_for_action = tx_clone.clone();
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
@@ -440,7 +443,7 @@ impl App {
                 match timeout_result {
                     Ok(Ok(data)) => {
                         let media_details = MediaDetails::from(data);
-                        
+
                         let cover_url = &media_details.cover_image;
                         if !cover_url.is_empty() {
                             app.fetch_cover(media_id, cover_url.clone(), tx_for_action);

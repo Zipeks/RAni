@@ -116,6 +116,21 @@ pub fn handle_details_events(
             app.active_block = ActiveBlock::Center;
             app.media_details = None;
         }
+        KeyCode::Char('j') | KeyCode::Down | KeyCode::Char('k') | KeyCode::Up => {
+            match key.code {
+                KeyCode::Char('j') | KeyCode::Down => app.next_center_item(),
+                KeyCode::Char('k') | KeyCode::Up => app.previous_center_item(),
+                _ => {}
+            }
+            if let Some(selected_index) = app.browse_state.state.selected() {
+                let current_items = app.get_current_center_items();
+
+                if selected_index < current_items.len() {
+                    app.fetch_media_details(client, tx);
+                    app.active_block = ActiveBlock::Details;
+                }
+            }
+        }
         _ => {}
     }
 }

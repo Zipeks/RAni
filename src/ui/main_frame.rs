@@ -32,7 +32,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
                     Constraint::Fill(2),
                 ],
                 ActiveBlock::Details => [
-                    Constraint::Length(20),
+                    Constraint::Length(0),
                     Constraint::Fill(3),
                     Constraint::Fill(5),
                 ],
