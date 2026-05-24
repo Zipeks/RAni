@@ -507,6 +507,15 @@ impl From<get_user_media_list::MediaType> for MediaType {
         }
     }
 }
+impl From<get_media_details::MediaType> for MediaType {
+    fn from(data: get_media_details::MediaType) -> Self {
+        match data {
+            get_media_details::MediaType::ANIME => MediaType::Anime,
+            get_media_details::MediaType::MANGA => MediaType::Manga,
+            get_media_details::MediaType::Other(_) => MediaType::Unknown,
+        }
+    }
+}
 pub struct UserMediaDetails {
     pub progress: i64,
     pub score: f64,
@@ -522,6 +531,7 @@ pub struct MediaDetails {
     pub season_year: i64,
     pub site_url: String,
     pub media_status: MediaStatus,
+    pub type_: MediaType,
     pub user_media_details: Option<UserMediaDetails>,
 }
 impl From<get_media_details::ResponseData> for MediaDetails {
@@ -569,6 +579,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .map(Season::from)
             .unwrap_or(Season::Unknown);
 
+        let type_ = MediaType::from(media.as_ref().map(|m| m.type_.clone()).unwrap().unwrap());
         let season_year = media.as_ref().and_then(|m| m.season_year).unwrap_or(0);
 
         let site_url = media
@@ -600,6 +611,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             description,
             average_score,
             total,
+            type_,
             cover_image,
             season,
             season_year,

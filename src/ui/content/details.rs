@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    app_helper_structs::{ActiveBlock, MediaStatus, Season, TitleLanguage},
+    app_helper_structs::{ActiveBlock, MediaType, TitleLanguage},
 };
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::StatefulImage;
@@ -16,7 +16,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
             Style::default().fg(Color::DarkGray)
         })
         .border_type(BorderType::Rounded)
-        .title(" Details ").padding(Padding::proportional(1));
+        .title(" Details ")
+        .padding(Padding::proportional(1));
 
     let inner_details_area = details_block.inner(area);
     frame.render_widget(details_block, area);
@@ -28,6 +29,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         frame.render_widget(p, inner_details_area);
         return;
     } else if let Some(media_details) = &app.media_details {
+        let media_type = media_details.type_;
         let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -40,15 +42,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         let top_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .spacing(2)
-            .constraints([
-                Constraint::Length(25),
-                Constraint::Fill(1),
-                Constraint::Fill(1),
-            ])
+            .constraints([Constraint::Length(25), Constraint::Fill(1)])
             .split(vertical_chunks[0]);
 
         let image_area = top_chunks[0];
-
         let media_id = app
             .browse_state
             .state
@@ -66,76 +63,108 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
             frame.render_widget(Paragraph::new("").centered(), image_area);
         }
 
-        let info_area = top_chunks[1];
+        let right_panel_area = top_chunks[1];
 
-        let season_str = media_details.season.to_string();
+        let right_panel_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(4), Constraint::Fill(1)])
+            .split(right_panel_area);
 
-        let status_str = media_details.media_status.to_string();
+        let main_title = media_details.titles.get_title(&app.title_language);
+        let mut alt_titles = Vec::new();
+        let candidates = [
+            &media_details.titles.native,
+            &media_details.titles.romaji,
+            &media_details.titles.english,
+        ];
+        for t in candidates.iter() {
+            let t_str = t.as_str();
+            if !t_str.is_empty() && t_str != main_title && !alt_titles.contains(&t_str) {
+                alt_titles.push(t_str);
+            }
+        }
 
-        let total_str = media_details
-            .total
-            .map(|t| t.to_string())
-            .unwrap_or_else(|| "?".to_string());
-
-        let label_style = Style::default().fg(Color::DarkGray);
-
-        let info_lines = vec![
-            Line::from(media_details.titles.get_title(&app.title_language)).style(
+        let title_lines = vec![
+            Line::from(main_title).style(
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
             ),
             Line::from(Span::styled(
-                format!(
-                    "{}, {}, {}",
-                    media_details.titles.get_title(&TitleLanguage::Native),
-                    media_details.titles.get_title(&TitleLanguage::Romaji),
-                    media_details.titles.get_title(&TitleLanguage::English)
-                ),
-                label_style,
+                alt_titles.join(" • "),
+                Style::default().fg(Color::DarkGray),
             )),
-            Line::from(""),
+        ];
+
+        let titles_paragraph = Paragraph::new(title_lines).wrap(Wrap { trim: true });
+        frame.render_widget(titles_paragraph, right_panel_chunks[0]);
+
+        let stats_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(right_panel_chunks[1]);
+
+        let label_style = Style::default().fg(Color::DarkGray);
+        let header_style = Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD);
+
+        let total_str = media_details
+            .total
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "?".to_string());
+        let info_lines = vec![
+            Line::from("Information").style(header_style),
             Line::from(vec![
-                Span::styled("Status:  ", label_style),
-                Span::raw(status_str),
+                Span::styled("Status:    ", label_style),
+                Span::raw(media_details.media_status.to_string()),
             ]),
             Line::from(vec![
-                Span::styled("Season:   ", label_style),
-                Span::raw(format!("{} {}", season_str, media_details.season_year)),
+                Span::styled("Season:    ", label_style),
+                Span::raw(format!(
+                    "{} {}",
+                    media_details.season.to_string(),
+                    media_details.season_year
+                )),
             ]),
             Line::from(vec![
-                Span::styled("Episodes: ", label_style),
+                Span::styled(
+                    {
+                        let media_type: MediaType = media_details.type_;
+                        match media_type {
+                            MediaType::Anime => "Episodes:  ",
+                            MediaType::Manga => "Chapters:  ",
+                            MediaType::Unknown => " ",
+                        }
+                    },
+                    label_style,
+                ),
                 Span::raw(total_str),
             ]),
             Line::from(vec![
-                Span::styled("Score:   ", label_style),
+                Span::styled("Avg Score: ", label_style),
                 Span::raw(format!("{} / 100", media_details.average_score)),
             ]),
         ];
+        frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);
 
-        let info_paragraph = Paragraph::new(info_lines).wrap(Wrap { trim: true });
-        frame.render_widget(info_paragraph, info_area);
-
-        if let Some(user_media_detials) = &media_details.user_media_details {
+        if let Some(user_media_details) = &media_details.user_media_details {
             let user_info_lines = vec![
-                Line::from(""),
-                Line::from(""),
-                Line::from(Span::styled(
-                    format!("Your status: {}", user_media_detials.status.to_string()),
-                    label_style,
-                )),
-                Line::from(Span::styled(
-                    format!("Progress: {}", user_media_detials.progress),
-                    label_style,
-                )),
+                Line::from("Your List").style(header_style),
                 Line::from(vec![
-                    Span::styled("Your score: ", label_style),
-                    Span::raw(format!("{}", user_media_detials.score)),
+                    Span::styled("Status:   ", label_style),
+                    Span::raw(user_media_details.status.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Progress: ", label_style),
+                    Span::raw(user_media_details.progress.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Score:    ", label_style),
+                    Span::raw(user_media_details.score.to_string()),
                 ]),
             ];
-
-            let user_info_paragraph = Paragraph::new(user_info_lines).wrap(Wrap { trim: true });
-            frame.render_widget(user_info_paragraph, top_chunks[2]);
+            frame.render_widget(Paragraph::new(user_info_lines), stats_chunks[1]);
         }
 
         let desc_area = vertical_chunks[2];
