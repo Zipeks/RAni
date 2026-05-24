@@ -12,8 +12,6 @@ pub fn draw(
     current_view: CurrentView,
     title_language: &TitleLanguage,
 ) {
-    let now = chrono::Utc::now().timestamp();
-
     let rows: Vec<Row> = items
         .iter()
         .map(|item| {
@@ -37,12 +35,12 @@ pub fn draw(
             };
 
             let airing_str = if let Some(ref airing) = item.next_airing_episode {
-                let diff_seconds = airing.airing_at - now;
+                let time_until_airing = airing.time_until_airing;
 
-                if diff_seconds > 0 {
-                    let days = diff_seconds / 86400;
-                    let hours = (diff_seconds % 86400) / 3600;
-                    let mins = (diff_seconds % 3600) / 60;
+                if time_until_airing > 0 {
+                    let days = time_until_airing / 86400;
+                    let hours = (time_until_airing % 86400) / 3600;
+                    let mins = (time_until_airing % 3600) / 60;
 
                     if days > 0 {
                         format!("Ep {}: {}d {}h {}min", airing.episode, days, hours, mins)

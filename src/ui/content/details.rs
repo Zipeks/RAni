@@ -116,24 +116,24 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         let info_lines = vec![
             Line::from("Information").style(header_style),
             Line::from(vec![
-                Span::styled("Status:    ", label_style),
+                Span::styled("Status:     ", label_style),
                 Span::raw(media_details.media_status.to_string()),
             ]),
-            Line::from(vec![
-                Span::styled("Season:    ", label_style),
-                Span::raw(format!(
-                    "{} {}",
-                    media_details.season.to_string(),
-                    media_details.season_year
-                )),
-            ]),
+            // Line::from(vec![
+            //     Span::styled("Season:    ", label_style),
+            //     Span::raw(format!(
+            //         "{} {}",
+            //         media_details.season.to_string(),
+            //         media_details.season_year
+            //     )),
+            // ]),
             Line::from(vec![
                 Span::styled(
                     {
                         let media_type: MediaType = media_details.type_;
                         match media_type {
-                            MediaType::Anime => "Episodes:  ",
-                            MediaType::Manga => "Chapters:  ",
+                            MediaType::Anime => "Episodes:   ",
+                            MediaType::Manga => "Chapters:   ",
                             MediaType::Unknown => " ",
                         }
                     },
@@ -142,8 +142,16 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
                 Span::raw(total_str),
             ]),
             Line::from(vec![
-                Span::styled("Avg Score: ", label_style),
+                Span::styled("Avg Score:  ", label_style),
                 Span::raw(format!("{} / 100", media_details.average_score)),
+            ]),
+            Line::from(vec![
+                Span::styled("Start Date: ", label_style),
+                Span::raw(media_details.start_date.to_string()),
+            ]),
+            Line::from(vec![
+                Span::styled("End Date:   ", label_style),
+                Span::raw(media_details.end_date.to_string()),
             ]),
         ];
         frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);

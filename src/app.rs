@@ -6,9 +6,8 @@ use ratatui::backend::Backend;
 use ratatui::crossterm::event::{self};
 use ratatui::crossterm::event::{Event, KeyCode};
 use ratatui::widgets::{ListState, TableState};
-use ratatui_image::FontSize;
+use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
-use ratatui_image::{picker::Picker, protocol::Protocol};
 use std::collections::HashMap;
 use std::io;
 use std::sync::mpsc::{Receiver, Sender};
@@ -17,7 +16,7 @@ use std::time::Duration;
 use crate::anilist::{get_media, get_user_media_list};
 use crate::app_helper_structs::{
     ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaDetails, MediaListItem, MediaType,
-    NextAiringEpisode, PageInfo, Season, TitleLanguage, User, UserMediaList,
+    TitleLanguage, User, UserMediaList,
 };
 
 pub struct App {
@@ -216,7 +215,7 @@ impl App {
                                 items.sort_by(|a, b| {
                                     match (&a.next_airing_episode, &b.next_airing_episode) {
                                         (Some(ep_a), Some(ep_b)) => {
-                                            ep_a.airing_at.cmp(&ep_b.airing_at)
+                                            ep_a.time_until_airing.cmp(&ep_b.time_until_airing)
                                         }
 
                                         (Some(_), None) => std::cmp::Ordering::Less,

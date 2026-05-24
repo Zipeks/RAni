@@ -53,9 +53,7 @@ pub struct PageInfo {
     pub has_next_page: Option<bool>,
 }
 
-use moka::ops::compute::Op;
 use ratatui::widgets::TableState;
-use serde_json::ser::Formatter;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UserMediaStatus {
@@ -92,9 +90,10 @@ impl std::fmt::Display for UserMediaStatus {
         write!(f, "{}", s)
     }
 }
+
 use crate::anilist::{
     get_media, get_media_details,
-    get_user_media_list::{self, MediaListStatus},
+    get_user_media_list::{self},
 };
 impl From<get_user_media_list::MediaListStatus> for UserMediaStatus {
     fn from(graphql_status: get_user_media_list::MediaListStatus) -> Self {
@@ -212,7 +211,7 @@ impl From<get_media::ResponseData> for UserMediaList {
                         m.next_airing_episode
                             .as_ref()
                             .map(|airing| NextAiringEpisode {
-                                airing_at: airing.airing_at,
+                                time_until_airing: airing.time_until_airing,
                                 episode: airing.episode,
                             });
                     let average_score = m.average_score;
@@ -296,7 +295,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                         .as_ref()
                         .and_then(|next| next.next_airing_episode.clone())
                         .map(|airing| NextAiringEpisode {
-                            airing_at: airing.airing_at,
+                            time_until_airing: airing.time_until_airing,
                             episode: airing.episode,
                         });
                     let mapped_status: Option<UserMediaStatus> = m.status.map(|s| s.into());
@@ -324,7 +323,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
 #[derive(Clone, Debug)]
 pub struct NextAiringEpisode {
     pub episode: i64,
-    pub airing_at: i64,
+    pub time_until_airing: i64,
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TitleLanguage {
@@ -516,6 +515,21 @@ impl From<get_media_details::MediaType> for MediaType {
         }
     }
 }
+pub struct Date {
+    pub year: Option<i64>,
+    pub month: Option<i64>,
+    pub day: Option<i64>,
+}
+impl Date {
+    pub fn to_string(&self) -> String {
+        match (self.year, self.month, self.day) {
+            (Some(y), Some(m), Some(d)) => format!("{:04}-{:02}-{:02}", y, m, d),
+            (Some(y), Some(m), None) => format!("{:04}-{:02}-??", y, m),
+            (Some(y), None, None) => format!("{}", y),
+            _ => "Unknown".to_string(),
+        }
+    }
+}
 pub struct UserMediaDetails {
     pub progress: i64,
     pub score: f64,
@@ -533,6 +547,8 @@ pub struct MediaDetails {
     pub media_status: MediaStatus,
     pub type_: MediaType,
     pub user_media_details: Option<UserMediaDetails>,
+    pub start_date: Date,
+    pub end_date: Date,
 }
 impl From<get_media_details::ResponseData> for MediaDetails {
     fn from(data: get_media_details::ResponseData) -> Self {
@@ -587,6 +603,34 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .and_then(|m| m.site_url.clone())
             .unwrap_or_default();
 
+        let start_date = media
+            .as_ref()
+            .and_then(|m| m.start_date.as_ref())
+            .map(|d| Date {
+                year: d.year,
+                month: d.month,
+                day: d.day,
+            })
+            .unwrap_or(Date {
+                year: None,
+                month: None,
+                day: None,
+            });
+
+        let end_date = media
+            .as_ref()
+            .and_then(|m| m.end_date.as_ref())
+            .map(|d| Date {
+                year: d.year,
+                month: d.month,
+                day: d.day,
+            })
+            .unwrap_or(Date {
+                year: None,
+                month: None,
+                day: None,
+            });
+
         let media_status = media
             .as_ref()
             .and_then(|m| m.status.clone())
@@ -618,6 +662,8 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             site_url,
             media_status,
             user_media_details,
+            start_date,
+            end_date,
         }
     }
 }

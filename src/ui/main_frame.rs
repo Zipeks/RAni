@@ -23,8 +23,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
             match app.active_block {
                 ActiveBlock::Sidebar => [
                     Constraint::Length(20),
-                    Constraint::Fill(3),
-                    Constraint::Fill(3),
+                    Constraint::Fill(6),
+                    Constraint::Fill(2),
                 ],
                 ActiveBlock::Center => [
                     Constraint::Length(20),

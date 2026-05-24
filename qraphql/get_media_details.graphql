@@ -24,5 +24,17 @@ query GetMediaDetails($mediaId: Int!, $type: MediaType!, $format: ScoreFormat) {
     }
     type
     volumes
+    endDate {
+      year
+      month
+      day
+    }
+    isFavourite
+    startDate {
+      year
+      month
+      day
+    }
+    format
   }
 }

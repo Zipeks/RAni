@@ -28,7 +28,7 @@ query GetUserMediaList(
                 chapters
                 nextAiringEpisode {
                     episode
-                    airingAt
+                    timeUntilAiring
                 }
             }
             progress
