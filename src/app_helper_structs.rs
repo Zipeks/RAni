@@ -549,6 +549,7 @@ pub struct MediaDetails {
     pub user_media_details: Option<UserMediaDetails>,
     pub start_date: Date,
     pub end_date: Date,
+    pub is_favourite: bool,
 }
 impl From<get_media_details::ResponseData> for MediaDetails {
     fn from(data: get_media_details::ResponseData) -> Self {
@@ -631,6 +632,8 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                 day: None,
             });
 
+        let is_favourite = media.as_ref().map(|m| m.is_favourite).unwrap_or(false);
+
         let media_status = media
             .as_ref()
             .and_then(|m| m.status.clone())
@@ -664,6 +667,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             user_media_details,
             start_date,
             end_date,
+            is_favourite,
         }
     }
 }

@@ -83,19 +83,27 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
                 alt_titles.push(t_str);
             }
         }
+        let mut title_spans = Vec::new();
+
+        if media_details.is_favourite {
+            title_spans.push(Span::styled("❤️ ", Style::default().fg(Color::Red)));
+            title_spans.push(Span::styled("• ", Style::default().fg(Color::DarkGray))); 
+        }
+
+        title_spans.push(Span::styled(
+            main_title,
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ));
 
         let title_lines = vec![
-            Line::from(main_title).style(
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
+            Line::from(title_spans), 
             Line::from(Span::styled(
                 alt_titles.join(" • "),
                 Style::default().fg(Color::DarkGray),
             )),
         ];
-
         let titles_paragraph = Paragraph::new(title_lines).wrap(Wrap { trim: true });
         frame.render_widget(titles_paragraph, right_panel_chunks[0]);
 
