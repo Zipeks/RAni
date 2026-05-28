@@ -10,6 +10,7 @@ use ratatui::crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
 use std::error::Error;
 use std::io;
 use std::ops::Deref;
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 mod anilist;
@@ -47,7 +48,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
         }
     };
-
     enable_raw_mode()?;
     let mut stderr = io::stderr();
     execute!(stderr, EnterAlternateScreen, EnableMouseCapture)?;

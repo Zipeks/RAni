@@ -2,9 +2,11 @@ mod content;
 mod footer;
 mod header;
 mod main_frame;
+mod popups;
 mod sidebar;
-use crate::{app::App, ui::content::error_popup};
-use content::language_popup;
+
+use crate::app::App;
+
 use ratatui::prelude::*;
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -24,11 +26,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     footer::draw(frame, chunks[2], app);
 
     if app.show_language_popup {
-        language_popup::draw(frame, app);
+        popups::language::draw(frame, app);
     }
 
     if let Some(error_message) = &app.error_message {
-        error_popup::draw(frame, app, error_message.clone());
+        popups::error::draw(frame, app, error_message.clone());
     }
 }
 

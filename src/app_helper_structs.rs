@@ -520,18 +520,32 @@ pub struct Date {
     pub month: Option<i64>,
     pub day: Option<i64>,
 }
-impl Date {
-    pub fn to_string(&self) -> String {
-        match (self.year, self.month, self.day) {
+impl std::fmt::Display for Date {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match (self.year, self.month, self.day) {
             (Some(y), Some(m), Some(d)) => format!("{:04}-{:02}-{:02}", y, m, d),
             (Some(y), Some(m), None) => format!("{:04}-{:02}-??", y, m),
             (Some(y), None, None) => format!("{}", y),
             _ => "Unknown".to_string(),
+        };
+        write!(f, "{}", s)
+    }
+}
+impl Date {
+    pub fn empty() -> Date {
+        Date {
+            year: None,
+            month: None,
+            day: None,
         }
     }
 }
 pub struct UserMediaDetails {
     pub progress: i64,
+    pub progress_volumes: Option<i64>,
+    pub repeat: i64,
+    pub started_at: Date,
+    pub completed_at: Date,
     pub score: f64,
     pub status: UserMediaStatus,
 }
@@ -540,6 +554,7 @@ pub struct MediaDetails {
     pub description: String,
     pub average_score: i64,
     pub total: Option<i64>,
+    pub volumes: Option<i64>,
     pub cover_image: String,
     pub season: Season,
     pub season_year: i64,
@@ -583,6 +598,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .replace("<br>", "\n");
 
         let total = media.as_ref().and_then(|m| m.chapters.or(m.episodes));
+        let volumes = media.as_ref().and_then(|m| m.volumes);
 
         let cover_image = media
             .as_ref()
@@ -612,11 +628,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                 month: d.month,
                 day: d.day,
             })
-            .unwrap_or(Date {
-                year: None,
-                month: None,
-                day: None,
-            });
+            .unwrap_or(Date::empty());
 
         let end_date = media
             .as_ref()
@@ -626,11 +638,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                 month: d.month,
                 day: d.day,
             })
-            .unwrap_or(Date {
-                year: None,
-                month: None,
-                day: None,
-            });
+            .unwrap_or(Date::empty());
 
         let is_favourite = media.as_ref().map(|m| m.is_favourite).unwrap_or(false);
 
@@ -642,14 +650,44 @@ impl From<get_media_details::ResponseData> for MediaDetails {
 
         let mut user_media_details = None;
         if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
+            let score = m.score.unwrap_or(0.0);
+            let progress = m.progress.unwrap_or(0);
+            let status = m
+                .status
+                .clone()
+                .map(UserMediaStatus::from)
+                .unwrap_or(UserMediaStatus::Unknown);
+            let progress_volumes = m.progress_volumes;
+            let repeat = m.repeat.unwrap_or(0);
+
+            let started_at = m
+                .started_at
+                .as_ref()
+                .map(|d| Date {
+                    year: d.year,
+                    month: d.month,
+                    day: d.day,
+                })
+                .unwrap_or(Date::empty());
+
+            let completed_at = m
+                .completed_at
+                .as_ref()
+                .map(|d| Date {
+                    year: d.year,
+                    month: d.month,
+                    day: d.day,
+                })
+                .unwrap_or(Date::empty());
+
             user_media_details = Some(UserMediaDetails {
-                score: m.score.unwrap_or(0.0),
-                progress: m.progress.unwrap_or(0),
-                status: m
-                    .status
-                    .clone()
-                    .map(UserMediaStatus::from)
-                    .unwrap_or(UserMediaStatus::Unknown),
+                score,
+                progress,
+                progress_volumes,
+                status,
+                repeat,
+                started_at,
+                completed_at,
             });
         }
 
@@ -658,6 +696,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             description,
             average_score,
             total,
+            volumes,
             type_,
             cover_image,
             season,

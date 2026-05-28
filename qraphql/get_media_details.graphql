@@ -9,8 +9,20 @@ query GetMediaDetails($mediaId: Int!, $type: MediaType!, $format: ScoreFormat) {
     episodes
     mediaListEntry {
       progress
-      score(format: $format)
+      progressVolumes
+      repeat
       status
+      score(format: $format)
+      startedAt {
+        year
+        month
+        day
+      }
+      completedAt {
+        year
+        month
+        day
+      }
     }
     season
     seasonYear
