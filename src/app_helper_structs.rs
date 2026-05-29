@@ -60,9 +60,9 @@ pub enum UserMediaStatus {
     Current,
     Planning,
     Completed,
+    Repeating,
     Dropped,
     Paused,
-    Repeating,
     Unknown,
 }
 impl UserMediaStatus {
@@ -74,6 +74,27 @@ impl UserMediaStatus {
         UserMediaStatus::Paused,
         UserMediaStatus::Repeating,
     ];
+    pub fn next(&self) -> Self {
+        let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
+        Self::ALL[(index + 1) % Self::ALL.len()]
+    }
+
+    pub fn previous(&self) -> Self {
+        let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
+        Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+
+    pub fn to_update_entry_status(&self) -> update_entry::MediaListStatus {
+        match self {
+            UserMediaStatus::Current => update_entry::MediaListStatus::CURRENT,
+            UserMediaStatus::Planning => update_entry::MediaListStatus::PLANNING,
+            UserMediaStatus::Completed => update_entry::MediaListStatus::COMPLETED,
+            UserMediaStatus::Dropped => update_entry::MediaListStatus::DROPPED,
+            UserMediaStatus::Paused => update_entry::MediaListStatus::PAUSED,
+            UserMediaStatus::Repeating => update_entry::MediaListStatus::REPEATING,
+            UserMediaStatus::Unknown => update_entry::MediaListStatus::Other("".to_string()),
+        }
+    }
 }
 
 impl std::fmt::Display for UserMediaStatus {
@@ -94,6 +115,7 @@ impl std::fmt::Display for UserMediaStatus {
 use crate::anilist::{
     get_media, get_media_details,
     get_user_media_list::{self},
+    update_entry,
 };
 impl From<get_user_media_list::MediaListStatus> for UserMediaStatus {
     fn from(graphql_status: get_user_media_list::MediaListStatus) -> Self {
@@ -159,7 +181,6 @@ impl std::fmt::Display for MediaStatus {
 
 pub struct UserMediaList {
     pub page_info: PageInfo,
-    pub user_id: i64,
     pub items: Option<Vec<MediaListItem>>,
 }
 impl From<get_media::ResponseData> for UserMediaList {
@@ -231,7 +252,6 @@ impl From<get_media::ResponseData> for UserMediaList {
 
         UserMediaList {
             page_info,
-            user_id: 0,
             items: Some(items),
         }
     }
@@ -315,7 +335,6 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
 
         UserMediaList {
             page_info,
-            user_id: 0,
             items: Some(items),
         }
     }
@@ -473,7 +492,7 @@ pub struct BrowseState {
     pub current_category: BrowseCategory,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MediaType {
     Anime,
     Manga,
@@ -515,6 +534,7 @@ impl From<get_media_details::MediaType> for MediaType {
         }
     }
 }
+#[derive(Clone, Copy)]
 pub struct Date {
     pub year: Option<i64>,
     pub month: Option<i64>,
@@ -539,8 +559,18 @@ impl Date {
             day: None,
         }
     }
+    pub fn to_update_entry(&self) -> update_entry::FuzzyDateInput {
+        update_entry::FuzzyDateInput {
+            year: self.year,
+            month: self.month,
+            day: self.day,
+        }
+    }
 }
+
+#[derive(Clone)]
 pub struct UserMediaDetails {
+    pub media_id: i64,
     pub progress: i64,
     pub progress_volumes: Option<i64>,
     pub repeat: i64,
@@ -548,6 +578,7 @@ pub struct UserMediaDetails {
     pub completed_at: Date,
     pub score: f64,
     pub status: UserMediaStatus,
+    pub notes: String,
 }
 pub struct MediaDetails {
     pub titles: Titles,
@@ -650,6 +681,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
 
         let mut user_media_details = None;
         if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
+            let media_id = m.media_id;
             let score = m.score.unwrap_or(0.0);
             let progress = m.progress.unwrap_or(0);
             let status = m
@@ -680,7 +712,10 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                 })
                 .unwrap_or(Date::empty());
 
+            let notes = m.notes.clone().unwrap_or(String::new());
+
             user_media_details = Some(UserMediaDetails {
+                media_id,
                 score,
                 progress,
                 progress_volumes,
@@ -688,6 +723,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                 repeat,
                 started_at,
                 completed_at,
+                notes,
             });
         }
 
@@ -761,4 +797,21 @@ impl std::fmt::Display for Season {
         };
         write!(f, "{}", s)
     }
+}
+#[derive(Clone, Copy)]
+pub enum CurrentEditField {
+    Status,
+    Score,
+    EpisodeProgress,
+    VolumeProgress,
+    Rewatch,
+    StartDate,
+    EndDate,
+    Notes,
+}
+
+pub enum ActivePopup {
+    TitleLanguage,
+    Error,
+    EditMedia,
 }

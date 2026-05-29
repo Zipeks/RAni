@@ -5,7 +5,7 @@ mod main_frame;
 mod popups;
 mod sidebar;
 
-use crate::app::App;
+use crate::{app::App, app_helper_structs::ActivePopup};
 
 use ratatui::prelude::*;
 
@@ -25,12 +25,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     footer::draw(frame, chunks[2], app);
 
-    if app.show_language_popup {
-        popups::language::draw(frame, app);
-    }
-
-    if let Some(error_message) = &app.error_message {
-        popups::error::draw(frame, app, error_message.clone());
+    if let Some(active_popup) = &app.active_popup {
+        match active_popup {
+            ActivePopup::TitleLanguage => popups::language::draw(frame, app),
+            ActivePopup::EditMedia => popups::edit_media_status::draw(frame, app),
+            ActivePopup::Error => {
+                popups::error::draw(frame, app, app.get_error().unwrap_or("".to_string()))
+            }
+        }
     }
 }
 

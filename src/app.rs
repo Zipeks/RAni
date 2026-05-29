@@ -9,15 +9,15 @@ use ratatui::widgets::{ListState, TableState};
 use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
-use crate::anilist::{get_media, get_user_media_list};
+use crate::anilist::{AnilistClient, get_media, get_user_media_list};
 use crate::app_helper_structs::{
-    ActiveBlock, BrowseCategory, BrowseState, CurrentView, MediaDetails, MediaListItem, MediaType,
-    TitleLanguage, User, UserMediaList,
+    ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
+    MediaListItem, MediaType, TitleLanguage, User, UserMediaDetails, UserMediaList,
+    UserMediaStatus,
 };
 
 pub struct App {
@@ -28,7 +28,7 @@ pub struct App {
     pub sidebar_state: ListState,
 
     pub is_loading: bool,
-    pub error_message: Option<String>,
+    error_message: Option<String>,
 
     pub browse_state: BrowseState,
     pub image_picker: Picker,
@@ -38,8 +38,17 @@ pub struct App {
     pub media_details: Option<MediaDetails>,
     pub title_language: TitleLanguage,
 
-    pub show_language_popup: bool,
     pub language_popup_index: usize,
+
+    pub active_popup: Option<ActivePopup>,
+
+    pub edited_media: Option<UserMediaDetails>,
+
+    pub is_in_edit_state: bool,
+    pub edit_popup_index: usize,
+    pub edit_is_manga: bool,
+    pub edit_start_date_text: String,
+    pub edit_end_date_text: String,
 }
 
 impl App {
@@ -68,9 +77,28 @@ impl App {
             currently_fetching_image: None,
             media_details: None,
             title_language: TitleLanguage::UserPreferred,
-            show_language_popup: false,
+
+            active_popup: None,
             language_popup_index: 0,
+            edit_popup_index: 0,
+
+            is_in_edit_state: false,
+            edited_media: None,
+            edit_is_manga: false,
+            edit_end_date_text: String::new(),
+            edit_start_date_text: String::new(),
         }
+    }
+    pub fn set_error(&mut self, error_message: String) {
+        self.active_popup = Some(ActivePopup::Error);
+        self.error_message = Some(error_message);
+    }
+    pub fn get_error(&self) -> Option<String> {
+        self.error_message.clone()
+    }
+    pub fn unset_error(&mut self) {
+        self.active_popup = None;
+        self.error_message = None;
     }
 
     pub fn next_sidebar_item(&mut self) {
@@ -232,14 +260,25 @@ impl App {
                                 });
                             }
                         };
+                        let old_selected = app.browse_state.state.selected();
                         app.browse_state.media = Some(clean_list);
-                        app.browse_state.state.select_first();
+
+                        if let Some(idx) = old_selected {
+                            let len = app.get_current_center_items().len();
+                            if len > 0 && idx < len {
+                                app.browse_state.state.select(Some(idx));
+                            } else {
+                                app.browse_state.state.select_first();
+                            }
+                        } else {
+                            app.browse_state.state.select_first();
+                        }
                     }
                     Ok(Err(api_error)) => {
-                        app.error_message = Some(format!("API error: {}", api_error));
+                        app.set_error(format!("API error: {}", api_error));
                     }
                     Err(_) => {
-                        app.error_message = Some("Server timout".to_string());
+                        app.set_error("Server timout".to_string());
                     }
                 }
             });
@@ -381,8 +420,20 @@ impl App {
                 match timeout_result {
                     Ok(Ok(data)) => {
                         let clean_list = UserMediaList::from(data);
+                        let old_selected = app.browse_state.state.selected();
+
                         app.browse_state.media = Some(clean_list);
-                        app.browse_state.state.select_first();
+
+                        if let Some(idx) = old_selected {
+                            let len = app.get_current_center_items().len();
+                            if len > 0 && idx < len {
+                                app.browse_state.state.select(Some(idx));
+                            } else {
+                                app.browse_state.state.select_first();
+                            }
+                        } else {
+                            app.browse_state.state.select_first();
+                        }
                     }
                     Ok(Err(api_error)) => {
                         app.error_message = Some(format!("API error: {}", api_error));
@@ -495,6 +546,137 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+    pub fn get_current_edit_fields(&self) -> Vec<crate::app_helper_structs::CurrentEditField> {
+        use crate::app_helper_structs::CurrentEditField;
+        let mut fields = vec![CurrentEditField::Status, CurrentEditField::EpisodeProgress];
+
+        if self.edit_is_manga {
+            fields.push(CurrentEditField::VolumeProgress);
+        }
+
+        fields.extend(vec![
+            CurrentEditField::Score,
+            CurrentEditField::Rewatch,
+            CurrentEditField::StartDate,
+            CurrentEditField::EndDate,
+            CurrentEditField::Notes,
+        ]);
+        fields
+    }
+
+    pub fn open_edit_popup(&mut self) {
+        let selected_item = if let Some(selected_index) = self.browse_state.state.selected() {
+            let current_items = self.get_current_center_items();
+            if selected_index < current_items.len() {
+                Some(current_items[selected_index].clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let Some(item) = selected_item else {
+            return;
+        };
+
+        self.edit_is_manga = matches!(item.type_, MediaType::Manga);
+
+        if let Some(details) = &self.media_details {
+            if let Some(user_details) = &details.user_media_details {
+                self.edited_media = Some(user_details.clone());
+                self.active_popup = Some(ActivePopup::EditMedia);
+                self.edit_popup_index = 0;
+
+                let start = user_details.started_at.to_string();
+                self.edit_start_date_text = if start == "Unknown" {
+                    String::new()
+                } else {
+                    start
+                };
+
+                let end = user_details.completed_at.to_string();
+                self.edit_end_date_text = if end == "Unknown" { String::new() } else { end };
+                return;
+            }
+        }
+
+        let progress = item.progress.unwrap_or(0);
+        let status = item.status.unwrap_or(UserMediaStatus::Current);
+        let media_id = item.id;
+
+        self.edited_media = Some(UserMediaDetails {
+            media_id,
+            progress,
+            progress_volumes: None,
+            repeat: 0,
+            started_at: Date::empty(),
+            completed_at: Date::empty(),
+            score: 0.0,
+            status,
+            notes: String::new(),
+        });
+
+        self.edit_start_date_text = String::new();
+        self.edit_end_date_text = String::new();
+        self.edit_popup_index = 0;
+        self.active_popup = Some(ActivePopup::EditMedia);
+    }
+    pub fn save_edited_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
+        let Some(mut edited_media) = self.edited_media.clone() else {
+            return;
+        };
+        if !self.edit_is_manga {
+            edited_media.progress_volumes = None;
+        }
+
+        let media_id = edited_media.media_id;
+
+        self.is_loading = true;
+        let client_clone = client.clone();
+        let tx_clone = tx.clone();
+
+        let tx_for_action = tx_clone.clone();
+        let client_for_action = client_clone.clone();
+
+        tokio::spawn(async move {
+            let res = client_clone.update_entry(&edited_media).await;
+
+            if res.is_ok() {
+                client_clone.clear_media_list_cache();
+                client_clone.delete_from_details_cache(media_id).await;
+
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+
+            let action: AppAction = Box::new(move |app: &mut App| {
+                app.is_loading = false;
+                match res {
+                    Ok(_) => {
+                        app.active_popup = None;
+                        app.edited_media = None;
+
+                        app.fetch_media_details(client_for_action.clone(), tx_for_action.clone());
+
+                        app.is_loading = false;
+
+                        match app.current_view {
+                            CurrentView::UserAnime | CurrentView::UserManga => {
+                                app.fetch_user_media(client_for_action, tx_for_action);
+                            }
+                            CurrentView::BrowseAnime | CurrentView::BrowseManga => {
+                                app.fetch_browse(client_for_action, tx_for_action);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        app.set_error(format!("Something went wrong: {}", e));
+                    }
+                }
+            });
+            let _ = tx_clone.send(action);
+        });
+    }
 }
 
 pub type AppAction = Box<dyn FnOnce(&mut App) + Send>;
@@ -527,17 +709,22 @@ where
                 continue;
             }
 
+            if let Some(active_popup) = &app.active_popup {
+                match active_popup {
+                    ActivePopup::TitleLanguage => keybinds::handle_language_popup_events(app, key),
+                    ActivePopup::Error => keybinds::handle_error_popup_events(app, key),
+                    ActivePopup::EditMedia => keybinds::handle_edit_media_popup_events(
+                        app,
+                        key,
+                        client.clone(),
+                        tx.clone(),
+                    ),
+                }
+                continue;
+            }
+
             if key.code == KeyCode::Char('q') {
                 return Ok(true);
-            }
-
-            if let Some(_) = app.error_message {
-                keybinds::handle_error_popup_events(app, key);
-            }
-
-            if app.show_language_popup {
-                keybinds::handle_language_popup_events(app, key);
-                continue;
             }
 
             match app.active_block {
@@ -573,10 +760,10 @@ fn spawn_initial_viewer_fetch(client: crate::anilist::AnilistClient, tx: Sender<
                 }
             }
             Ok(Err(data)) => {
-                app.error_message = Some(format!("Error connecting to Anilist: {}", data));
+                app.set_error(format!("Error connecting to Anilist: {}", data));
                 _ = auth::clear_user_token();
             }
-            Err(data) => app.error_message = Some(format!("Error connecting to Anilist: {}", data)),
+            Err(data) => app.set_error(format!("Error connecting to Anilist: {}", data)),
         });
 
         let _ = tx_clone.send(action);

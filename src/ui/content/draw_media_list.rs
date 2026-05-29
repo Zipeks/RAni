@@ -41,11 +41,12 @@ pub fn draw(
                     let days = time_until_airing / 86400;
                     let hours = (time_until_airing % 86400) / 3600;
                     let mins = (time_until_airing % 3600) / 60;
-
-                    if days > 0 {
-                        format!("Ep {}: {}d {}h {}min", airing.episode, days, hours, mins)
-                    } else {
-                        format!("Ep {}: in {}h {}min", airing.episode, hours, mins)
+                    match (days, hours) {
+                        (0, 0) => format!("Ep {}: {}min", airing.episode, mins),
+                        (0, _) => format!("Ep {}: {}h {}min", airing.episode, hours, mins),
+                        (_, _) => {
+                            format!("Ep {}: {}d {}h {}min", airing.episode, days, hours, mins)
+                        }
                     }
                 } else {
                     format!("Ep {} is out! ", airing.episode)

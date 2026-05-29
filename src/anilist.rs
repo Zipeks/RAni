@@ -4,7 +4,7 @@ use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 use tracing::info;
 
-use crate::app_helper_structs::MediaType;
+use crate::app_helper_structs::{MediaType, UserMediaDetails};
 
 // crate::anilist::{get_user_media_list};
 // crate::anilist::{get_media};
@@ -17,15 +17,6 @@ use crate::app_helper_structs::MediaType;
 )]
 
 pub struct GetMediaDetails;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_viewer.graphql",
-    response_derives = "Debug"
-)]
-
-pub struct GetViewer;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -51,11 +42,20 @@ pub struct GetUserMediaList;
 )]
 pub struct GetMedia;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.json",
+    query_path = "qraphql/update_entry.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct UpdateEntry;
+
 #[derive(Clone)]
 pub struct AnilistClient {
     http_client: Client,
     api_url: &'static str,
-    cache: Cache<String, String>,
+    media_list_cache: Cache<String, String>,
+    details_cache: Cache<i64, String>,
 }
 
 impl AnilistClient {
@@ -69,14 +69,19 @@ impl AnilistClient {
             headers.insert(header::AUTHORIZATION, header_value);
         }
         let client = Client::builder().default_headers(headers).build()?;
-        let cache = Cache::builder()
+        let media_list_cache = Cache::builder()
+            .max_capacity(100)
+            .time_to_live(Duration::from_secs(300))
+            .build();
+        let details_cache = Cache::builder()
             .max_capacity(100)
             .time_to_live(Duration::from_secs(300))
             .build();
         Ok(Self {
             http_client: client,
             api_url: "https://graphql.anilist.co",
-            cache: cache,
+            media_list_cache,
+            details_cache,
         })
     }
 
@@ -135,7 +140,7 @@ impl AnilistClient {
 
         let cache_key = json_body.to_string();
 
-        if let Some(cached_response) = self.cache.get(&cache_key).await {
+        if let Some(cached_response) = self.media_list_cache.get(&cache_key).await {
             let response_body: graphql_client::Response<get_user_media_list::ResponseData> =
                 serde_json::from_str(&cached_response)?;
 
@@ -154,7 +159,7 @@ impl AnilistClient {
 
         let raw_response_text = res.text().await?;
 
-        self.cache
+        self.media_list_cache
             .insert(cache_key, raw_response_text.clone())
             .await;
 
@@ -214,7 +219,7 @@ impl AnilistClient {
 
         let cache_key = json_body.to_string();
 
-        if let Some(cached_response) = self.cache.get(&cache_key).await {
+        if let Some(cached_response) = self.media_list_cache.get(&cache_key).await {
             let response_body: graphql_client::Response<get_media::ResponseData> =
                 serde_json::from_str(&cached_response)?;
 
@@ -233,7 +238,7 @@ impl AnilistClient {
 
         let raw_response_text = res.text().await?;
 
-        self.cache
+        self.media_list_cache
             .insert(cache_key, raw_response_text.clone())
             .await;
 
@@ -260,11 +265,7 @@ impl AnilistClient {
 
         let request_body = GetMediaDetails::build_query(variables);
 
-        let json_body = serde_json::to_value(&request_body)?;
-
-        let cache_key = json_body.to_string();
-
-        if let Some(cached_response) = self.cache.get(&cache_key).await {
+        if let Some(cached_response) = self.details_cache.get(&media_id).await {
             let response_body: graphql_client::Response<get_media_details::ResponseData> =
                 serde_json::from_str(&cached_response)?;
 
@@ -283,8 +284,8 @@ impl AnilistClient {
 
         let raw_response_text = res.text().await?;
 
-        self.cache
-            .insert(cache_key, raw_response_text.clone())
+        self.details_cache
+            .insert(media_id, raw_response_text.clone())
             .await;
 
         let response_body: graphql_client::Response<get_media_details::ResponseData> =
@@ -295,5 +296,51 @@ impl AnilistClient {
         }
 
         response_body.data.ok_or_else(|| "No data".into())
+    }
+    pub async fn update_entry(
+        &self,
+        user_media_details: &UserMediaDetails,
+    ) -> Result<update_entry::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+        let variables = update_entry::Variables {
+            media_id: user_media_details.media_id,
+            status: user_media_details.status.to_update_entry_status(),
+            progress: user_media_details.progress,
+            progress_volumes: user_media_details.progress_volumes,
+            repeat: user_media_details.repeat,
+            started_at: user_media_details.started_at.to_update_entry(),
+            completed_at: user_media_details.completed_at.to_update_entry(),
+            score: user_media_details.score,
+            notes: Some(user_media_details.notes.clone()),
+        };
+        let request_body = UpdateEntry::build_query(variables);
+
+        let mut json_body = serde_json::to_value(&request_body)?;
+        if let Some(vars) = json_body
+            .get_mut("variables")
+            .and_then(|v| v.as_object_mut())
+        {
+            vars.retain(|_, v| !v.is_null());
+        }
+        let res = self
+            .http_client
+            .post(self.api_url)
+            .json(&json_body)
+            .send()
+            .await?;
+
+        let response_body: graphql_client::Response<update_entry::ResponseData> =
+            res.json().await?;
+
+        if let Some(errors) = response_body.errors {
+            return Err(format!("GraphQL Error: {:?}", errors).into());
+        }
+
+        response_body.data.ok_or_else(|| "No data".into())
+    }
+    pub fn clear_media_list_cache(&self) {
+        self.media_list_cache.invalidate_all();
+    }
+    pub async fn delete_from_details_cache(&self, media_id: i64) {
+        self.details_cache.invalidate(&media_id).await;
     }
 }

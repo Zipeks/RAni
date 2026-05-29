@@ -23,7 +23,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_widget(details_block, area);
 
     if let Some(media_details) = &app.media_details {
-        let media_type = media_details.type_;
         let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -163,29 +162,36 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
         frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);
 
         if let Some(user_media_details) = &media_details.user_media_details {
-            let user_info_lines = vec![
-                Line::from("Your List").style(header_style),
-                Line::from(vec![
-                    Span::styled("Status:   ", label_style),
-                    Span::raw(user_media_details.status.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Progress: ", label_style),
-                    Span::raw(user_media_details.progress.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Score:    ", label_style),
-                    Span::raw(user_media_details.score.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Start Date: ", label_style),
-                    Span::raw(user_media_details.started_at.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("End Date:   ", label_style),
-                    Span::raw(user_media_details.completed_at.to_string()),
-                ]),
-            ];
+            let mut user_info_lines = vec![];
+            user_info_lines.push(Line::from("Your List").style(header_style));
+            user_info_lines.push(Line::from(vec![
+                Span::styled("Status:     ", label_style),
+                Span::raw(user_media_details.status.to_string()),
+            ]));
+
+            user_info_lines.push(Line::from(vec![
+                Span::styled("Progress:   ", label_style),
+                Span::raw(user_media_details.progress.to_string()),
+            ]));
+            if let MediaType::Manga = media_details.type_ {
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("Volumes:    ", label_style),
+                    Span::raw(user_media_details.progress_volumes.unwrap_or(0).to_string()),
+                ]));
+            }
+            user_info_lines.push(Line::from(vec![
+                Span::styled("Score:      ", label_style),
+                Span::raw(user_media_details.score.to_string()),
+            ]));
+            user_info_lines.push(Line::from(vec![
+                Span::styled("Start Date: ", label_style),
+                Span::raw(user_media_details.started_at.to_string()),
+            ]));
+            user_info_lines.push(Line::from(vec![
+                Span::styled("End Date:   ", label_style),
+                Span::raw(user_media_details.completed_at.to_string()),
+            ]));
+
             frame.render_widget(Paragraph::new(user_info_lines), stats_chunks[1]);
         }
 

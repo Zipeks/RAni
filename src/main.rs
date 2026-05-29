@@ -10,7 +10,6 @@ use ratatui::crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
 use std::error::Error;
 use std::io;
 use std::ops::Deref;
-use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 mod anilist;

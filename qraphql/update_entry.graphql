@@ -1,0 +1,20 @@
+mutation UpdateEntry($status: MediaListStatus!, $progress: Int!, $progressVolumes: Int, $repeat: Int!, $startedAt: FuzzyDateInput!, $completedAt: FuzzyDateInput!, $mediaId: Int!, $score: Float!, $notes: String) {
+  SaveMediaListEntry(status: $status, progress: $progress, progressVolumes: $progressVolumes, repeat: $repeat, startedAt: $startedAt, completedAt: $completedAt, mediaId: $mediaId, score: $score, notes: $notes) {
+    mediaId
+    startedAt {
+      day
+      month
+      year
+    }
+    status
+    score
+    progress
+    progressVolumes
+    completedAt {
+      day
+      month
+      year
+    }
+    notes
+  }
+}
