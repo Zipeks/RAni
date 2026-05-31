@@ -32,6 +32,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             ActivePopup::Error => {
                 popups::error::draw(frame, app, app.get_error().unwrap_or("".to_string()))
             }
+            ActivePopup::Favourite => popups::favourite::draw(frame, app),
         }
     }
 }

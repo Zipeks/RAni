@@ -335,16 +335,11 @@ impl App {
                     .as_ref()
                     .map_or(25, |m| m.page_info.per_page),
             ),
-            match self.current_view {
-                CurrentView::BrowseAnime => get_media::MediaType::ANIME,
-                CurrentView::BrowseManga => get_media::MediaType::MANGA,
-                _ => get_media::MediaType::ANIME,
-            },
             {
                 match self.current_view {
                     CurrentView::BrowseAnime => MediaType::Anime,
                     CurrentView::BrowseManga => MediaType::Manga,
-                    _ => MediaType::Anime,
+                    _ => MediaType::Unknown,
                 }
             },
             match self.current_view {
@@ -381,8 +376,7 @@ impl App {
         sort: Option<Vec<get_media::MediaSort>>,
         page: Option<i64>,
         per_page: Option<i64>,
-        graphql_type: get_media::MediaType,
-        app_type: MediaType,
+        media_type: MediaType,
         season: Option<get_media::MediaSeason>,
         season_year: Option<i64>,
         search: Option<String>,
@@ -400,7 +394,7 @@ impl App {
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
             let fetch_future = client_clone.get_media(
-                graphql_type,
+                media_type,
                 season,
                 season_year,
                 status,
@@ -641,8 +635,6 @@ impl App {
             if res.is_ok() {
                 client_clone.clear_media_list_cache();
                 client_clone.delete_from_details_cache(media_id).await;
-
-                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
 
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -671,6 +663,67 @@ impl App {
                 }
             });
             let _ = tx_clone.send(action);
+        });
+    }
+    pub fn fetch_toggle_favourite(
+        &mut self,
+        client: crate::anilist::AnilistClient,
+        tx: Sender<AppAction>,
+    ) {
+        if self.is_loading {
+            return;
+        }
+        let Some(media_details) = &self.media_details else {
+            return;
+        };
+
+        let id = media_details.media_id;
+        let media_type = media_details.type_;
+
+        let next_favourite_state = !media_details.is_favourite;
+
+        self.is_loading = true;
+        self.error_message = None;
+
+        tokio::spawn(async move {
+            let timeout_duration = Duration::from_secs(5);
+
+            let (anime_id, manga_id) = {
+                match media_type {
+                    MediaType::Anime => (Some(id), None),
+                    MediaType::Manga => (None, Some(id)),
+                    _ => (None, None),
+                }
+            };
+
+            let fetch_future = client.toggle_favourite(anime_id, manga_id);
+            let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
+
+            let is_success = matches!(timeout_result, Ok(Ok(_)));
+
+            if is_success {
+                client
+                    .update_details_cache_favourite(id, next_favourite_state)
+                    .await;
+            }
+
+            let action: AppAction = Box::new(move |app: &mut App| {
+                app.is_loading = false;
+                match timeout_result {
+                    Ok(Ok(_data)) => {
+                        if let Some(ref mut details) = app.media_details {
+                            details.is_favourite = !details.is_favourite;
+                        }
+                    }
+                    Ok(Err(api_error)) => {
+                        app.set_error(format!("API error: {}", api_error));
+                    }
+                    Err(_) => {
+                        app.set_error("Server timeout".to_string());
+                    }
+                }
+            });
+            let _ = tx.send(action);
         });
     }
 }
@@ -710,6 +763,12 @@ where
                     ActivePopup::TitleLanguage => keybinds::handle_language_popup_events(app, key),
                     ActivePopup::Error => keybinds::handle_error_popup_events(app, key),
                     ActivePopup::EditMedia => keybinds::handle_edit_media_popup_events(
+                        app,
+                        key,
+                        client.clone(),
+                        tx.clone(),
+                    ),
+                    ActivePopup::Favourite => keybinds::handle_favourite_popup_events(
                         app,
                         key,
                         client.clone(),

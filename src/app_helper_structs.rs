@@ -84,7 +84,7 @@ impl UserMediaStatus {
         Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 
-    pub fn to_update_entry_status(&self) -> update_entry::MediaListStatus {
+    pub fn to_update_entry_status(self) -> update_entry::MediaListStatus {
         match self {
             UserMediaStatus::Current => update_entry::MediaListStatus::CURRENT,
             UserMediaStatus::Planning => update_entry::MediaListStatus::PLANNING,
@@ -360,7 +360,7 @@ impl TitleLanguage {
         TitleLanguage::Native,
     ];
 
-    pub fn to_string(&self) -> &'static str {
+    pub fn to_string(self) -> &'static str {
         match self {
             TitleLanguage::UserPreferred => "User Preferred",
             TitleLanguage::Romaji => "Romaji",
@@ -449,7 +449,7 @@ impl BrowseCategory {
     }
 }
 impl BrowseCategory {
-    pub fn to_string_user_anime(&self) -> &'static str {
+    pub fn to_string_user_anime(self) -> &'static str {
         match self {
             BrowseCategory::CategoryOne => "Watching",
             BrowseCategory::CategoryTwo => "Watched",
@@ -457,7 +457,7 @@ impl BrowseCategory {
             BrowseCategory::Search => "All",
         }
     }
-    pub fn to_string_user_manga(&self) -> &'static str {
+    pub fn to_string_user_manga(self) -> &'static str {
         match self {
             BrowseCategory::CategoryOne => "Reading",
             BrowseCategory::CategoryTwo => "Read",
@@ -466,7 +466,7 @@ impl BrowseCategory {
         }
     }
 
-    pub fn to_string_browse_anime(&self) -> &'static str {
+    pub fn to_string_browse_anime(self) -> &'static str {
         match self {
             BrowseCategory::CategoryOne => "Trending",
             BrowseCategory::CategoryTwo => "This Season",
@@ -475,7 +475,7 @@ impl BrowseCategory {
         }
     }
 
-    pub fn to_string_browse_manga(&self) -> &'static str {
+    pub fn to_string_browse_manga(self) -> &'static str {
         match self {
             BrowseCategory::CategoryOne => "Trending",
             BrowseCategory::CategoryTwo => "All Time Popular",
@@ -499,11 +499,20 @@ pub enum MediaType {
     Unknown,
 }
 impl MediaType {
-    pub fn to_get_media_details(&self) -> get_media_details::MediaType {
+    pub fn to_get_media_details(self) -> get_media_details::MediaType {
         match self {
             MediaType::Anime => get_media_details::MediaType::ANIME,
             MediaType::Manga => get_media_details::MediaType::MANGA,
             MediaType::Unknown => get_media_details::MediaType::Other("".to_string()),
+        }
+    }
+}
+impl MediaType {
+    pub fn to_get_media(self) -> get_media::MediaType {
+        match self {
+            MediaType::Anime => get_media::MediaType::ANIME,
+            MediaType::Manga => get_media::MediaType::MANGA,
+            MediaType::Unknown => get_media::MediaType::Other("".to_string()),
         }
     }
 }
@@ -559,7 +568,7 @@ impl Date {
             day: None,
         }
     }
-    pub fn to_update_entry(&self) -> update_entry::FuzzyDateInput {
+    pub fn to_update_entry(self) -> update_entry::FuzzyDateInput {
         update_entry::FuzzyDateInput {
             year: self.year,
             month: self.month,
@@ -597,6 +606,7 @@ pub struct MediaDetails {
     pub start_date: Date,
     pub end_date: Date,
     pub is_favourite: bool,
+    pub media_id: i64,
 }
 impl From<get_media_details::ResponseData> for MediaDetails {
     fn from(data: get_media_details::ResponseData) -> Self {
@@ -680,6 +690,8 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .map(MediaStatus::from)
             .unwrap_or(MediaStatus::Unknown);
 
+        let media_id = media.as_ref().map(|m| m.id).unwrap_or(0);
+
         let mut user_media_details = None;
         if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
             let user_media_id = Some(m.id);
@@ -746,6 +758,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             start_date,
             end_date,
             is_favourite,
+            media_id,
         }
     }
 }
@@ -817,4 +830,5 @@ pub enum ActivePopup {
     TitleLanguage,
     Error,
     EditMedia,
+    Favourite,
 }

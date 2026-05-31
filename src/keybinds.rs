@@ -1,6 +1,10 @@
 use crate::{
     app::{App, AppAction},
-    app_helper_structs::{ActiveBlock, ActivePopup, BrowseCategory, CurrentView, TitleLanguage},
+    app_helper_structs::{
+        ActiveBlock,
+        ActivePopup::{self, Favourite},
+        BrowseCategory, CurrentView, TitleLanguage,
+    },
 };
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEvent;
@@ -134,6 +138,9 @@ pub fn handle_details_events(
         KeyCode::Char('e') => {
             app.open_edit_popup();
         }
+        KeyCode::Char('f') => {
+            app.active_popup = Some(ActivePopup::Favourite);
+        }
         _ => {}
     }
 }
@@ -162,6 +169,21 @@ pub fn handle_language_popup_events(app: &mut App, key: KeyEvent) {
 pub fn handle_error_popup_events(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter => app.unset_error(),
+        _ => {}
+    }
+}
+pub fn handle_favourite_popup_events(
+    app: &mut App,
+    key: KeyEvent,
+    client: crate::anilist::AnilistClient,
+    tx: Sender<AppAction>,
+) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('n') => app.active_popup = None,
+        KeyCode::Char('y') | KeyCode::Enter => {
+            app.fetch_toggle_favourite(client, tx);
+            app.active_popup = None
+        }
         _ => {}
     }
 }

@@ -4,7 +4,7 @@ use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 use tracing::info;
 
-use crate::app_helper_structs::UserMediaDetails;
+use crate::app_helper_structs::{MediaType, UserMediaDetails};
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -45,6 +45,14 @@ pub struct GetMedia;
     response_derives = "Debug, Clone"
 )]
 pub struct UpdateEntry;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.json",
+    query_path = "qraphql/toggle_favourite.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct ToggleFavourite;
 
 #[derive(Clone)]
 pub struct AnilistClient {
@@ -171,7 +179,7 @@ impl AnilistClient {
 
     pub async fn get_media(
         &self,
-        type_: get_media::MediaType,
+        type_: MediaType,
         season: Option<get_media::MediaSeason>,
         season_year: Option<i64>,
         status: Option<Vec<get_media::MediaStatus>>,
@@ -196,7 +204,7 @@ impl AnilistClient {
             sort: mapped_sort,
             page,
             per_page,
-            type_,
+            type_: type_.to_get_media(),
             search: clean_search,
             format,
         };
@@ -332,6 +340,66 @@ impl AnilistClient {
 
         response_body.data.ok_or_else(|| "No data".into())
     }
+    pub async fn toggle_favourite(
+        &self,
+        anime_id: Option<i64>,
+        manga_id: Option<i64>,
+    ) -> Result<toggle_favourite::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+        let variables = toggle_favourite::Variables {
+            anime_id: anime_id.map(|id| id as i64),
+            manga_id: manga_id.map(|id| id as i64),
+        };
+
+        let request_body = ToggleFavourite::build_query(variables);
+        let mut json_body = serde_json::to_value(&request_body)?;
+
+        if let Some(vars) = json_body
+            .get_mut("variables")
+            .and_then(|v| v.as_object_mut())
+        {
+            vars.retain(|_, v| !v.is_null());
+        }
+
+        let res = self
+            .http_client
+            .post(self.api_url)
+            .json(&json_body)
+            .send()
+            .await?;
+
+        let response_body: graphql_client::Response<toggle_favourite::ResponseData> =
+            res.json().await?;
+
+        if let Some(errors) = response_body.errors {
+            return Err(format!("GraphQL Error: {:?}", errors).into());
+        }
+
+        response_body.data.ok_or_else(|| "No data".into())
+    }
+    pub async fn update_details_cache_favourite(&self, media_id: i64, is_favourite: bool) {
+        if let Some(cached_response) = self.details_cache.get(&media_id).await
+            && let Ok(mut json_val) = serde_json::from_str::<serde_json::Value>(&cached_response)
+            && let Some(data) = json_val.get_mut("data")
+        {
+            let media_opt = match data.get_mut("Media") {
+                Some(m) => Some(m),
+                None => data.get_mut("media"),
+            };
+
+            if let Some(media) = media_opt {
+                if media.get("isFavourite").is_some() {
+                    media["isFavourite"] = serde_json::Value::Bool(is_favourite);
+                } else {
+                    media["is_favourite"] = serde_json::Value::Bool(is_favourite);
+                }
+
+                if let Ok(updated_str) = serde_json::to_string(&json_val) {
+                    self.details_cache.insert(media_id, updated_str).await;
+                }
+            }
+        }
+    }
+
     pub fn clear_media_list_cache(&self) {
         self.media_list_cache.invalidate_all();
     }

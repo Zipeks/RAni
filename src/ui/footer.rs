@@ -4,7 +4,7 @@ use ratatui::{prelude::*, widgets::*};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let keybinds_info = Paragraph::new(Line::from({
-        let keybinds = match app.active_block {
+        match app.active_block {
             ActiveBlock::Sidebar => vec![
                 Span::raw("  "),
                 Span::raw("Up: k"),
@@ -19,21 +19,31 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                 Span::raw(" | "),
                 Span::raw("Down: j"),
                 Span::raw(" | "),
-                Span::raw("Sidebar: h"),
+                Span::raw("Left: h"),
                 Span::raw(" | "),
-                Span::raw("Details: l"),
-                Span::raw(" | "),
-                Span::raw("Details: l"),
+                Span::raw("Right: l"),
                 Span::raw(" | "),
                 Span::raw("Next page: n"),
                 Span::raw(" | "),
                 Span::raw("Prev page: p"),
                 Span::raw(" | "),
-                Span::raw("Change anime/manga: ]"),
+                Span::raw("Change category: ]/Tab"),
             ],
-            _ => vec![],
-        };
-        keybinds
+            ActiveBlock::Details => vec![
+                Span::raw("  "),
+                Span::raw("Up: k"),
+                Span::raw(" | "),
+                Span::raw("Down: j"),
+                Span::raw(" | "),
+                Span::raw("Sidebar: h"),
+                Span::raw(" | "),
+                Span::raw("Left: l"),
+                Span::raw(" | "),
+                Span::raw("Edit status: e"),
+                Span::raw(" | "),
+                Span::raw("Toggle favourite: f"),
+            ]
+        }
     }))
     .left_aligned();
 

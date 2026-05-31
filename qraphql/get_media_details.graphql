@@ -51,5 +51,6 @@ query GetMediaDetails($mediaId: Int!, $format: ScoreFormat) {
       day
     }
     format
+    id
   }
 }
