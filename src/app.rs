@@ -239,26 +239,24 @@ impl App {
                     Ok(Ok(data)) => {
                         let mut clean_list = UserMediaList::from(data);
                         if let Some(get_user_media_list::MediaListStatus::CURRENT) = status_for_sort
+                            && let Some(ref mut items) = clean_list.items
                         {
-                            if let Some(ref mut items) = clean_list.items {
-                                items.sort_by(|a, b| {
-                                    match (&a.next_airing_episode, &b.next_airing_episode) {
-                                        (Some(ep_a), Some(ep_b)) => {
-                                            ep_a.time_until_airing.cmp(&ep_b.time_until_airing)
-                                        }
-
-                                        (Some(_), None) => std::cmp::Ordering::Less,
-
-                                        (None, Some(_)) => std::cmp::Ordering::Greater,
-
-                                        (None, None) => {
-                                            a.titles.get_title(&TitleLanguage::UserPreferred).cmp(
-                                                &b.titles.get_title(&TitleLanguage::UserPreferred),
-                                            )
-                                        }
+                            items.sort_by(|a, b| {
+                                match (&a.next_airing_episode, &b.next_airing_episode) {
+                                    (Some(ep_a), Some(ep_b)) => {
+                                        ep_a.time_until_airing.cmp(&ep_b.time_until_airing)
                                     }
-                                });
-                            }
+
+                                    (Some(_), None) => std::cmp::Ordering::Less,
+
+                                    (None, Some(_)) => std::cmp::Ordering::Greater,
+
+                                    (None, None) => a
+                                        .titles
+                                        .get_title(&TitleLanguage::UserPreferred)
+                                        .cmp(b.titles.get_title(&TitleLanguage::UserPreferred)),
+                                }
+                            });
                         };
                         let old_selected = app.browse_state.state.selected();
                         app.browse_state.media = Some(clean_list);
@@ -287,18 +285,18 @@ impl App {
     }
 
     pub fn next_center_page(&mut self) {
-        if let Some(media) = &mut self.browse_state.media {
-            if media.page_info.has_next_page.unwrap_or(false) {
-                media.page_info.current_page = media.page_info.current_page + 1;
-            }
+        if let Some(media) = &mut self.browse_state.media
+            && media.page_info.has_next_page.unwrap_or(false)
+        {
+            media.page_info.current_page -= 1;
         }
     }
 
     pub fn previous_center_page(&mut self) {
-        if let Some(media) = &mut self.browse_state.media {
-            if media.page_info.current_page > 1 {
-                media.page_info.current_page = media.page_info.current_page - 1;
-            }
+        if let Some(media) = &mut self.browse_state.media
+            && media.page_info.current_page > 1
+        {
+            media.page_info.current_page -= 1;
         }
     }
 
@@ -458,6 +456,7 @@ impl App {
         if self.is_loading {
             return;
         }
+
         self.clean_media_details();
         let selected_index = self.browse_state.state.selected();
         let current_items = self.get_current_center_items();
@@ -471,11 +470,6 @@ impl App {
 
         let media_id = current_items[idx].id;
 
-        let media_type = match self.current_view {
-            CurrentView::UserAnime | CurrentView::BrowseAnime => MediaType::Anime,
-            CurrentView::UserManga | CurrentView::BrowseManga => MediaType::Manga,
-        };
-
         self.is_loading = true;
         self.error_message = None;
 
@@ -484,7 +478,7 @@ impl App {
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
-            let fetch_future = client_clone.get_media_details(media_id, media_type);
+            let fetch_future = client_clone.get_media_details(media_id);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
 
             let tx_for_action = tx_clone.clone();
@@ -513,6 +507,7 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+
     pub fn fetch_cover(&mut self, media_id: i64, url: String, tx: Sender<AppAction>) {
         if self.image_cache.contains_key(&media_id)
             || self.currently_fetching_image == Some(media_id)
@@ -524,20 +519,19 @@ impl App {
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            if let Ok(response) = reqwest::get(&url).await {
-                if let Ok(bytes) = response.bytes().await {
-                    if let Ok(dyn_image) = image::load_from_memory(&bytes) {
-                        let action: AppAction = Box::new(move |app: &mut App| {
-                            let protocol = app.image_picker.new_resize_protocol(dyn_image);
+            if let Ok(response) = reqwest::get(&url).await
+                && let Ok(bytes) = response.bytes().await
+                && let Ok(dyn_image) = image::load_from_memory(&bytes)
+            {
+                let action: AppAction = Box::new(move |app: &mut App| {
+                    let protocol = app.image_picker.new_resize_protocol(dyn_image);
 
-                            app.image_cache.insert(media_id, protocol);
-                            app.currently_fetching_image = None;
-                        });
+                    app.image_cache.insert(media_id, protocol);
+                    app.currently_fetching_image = None;
+                });
 
-                        let _ = tx_clone.send(action);
-                        return;
-                    }
-                }
+                let _ = tx_clone.send(action);
+                return;
             }
 
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -582,30 +576,32 @@ impl App {
 
         self.edit_is_manga = matches!(item.type_, MediaType::Manga);
 
-        if let Some(details) = &self.media_details {
-            if let Some(user_details) = &details.user_media_details {
-                self.edited_media = Some(user_details.clone());
-                self.active_popup = Some(ActivePopup::EditMedia);
-                self.edit_popup_index = 0;
+        if let Some(details) = &self.media_details
+            && let Some(user_details) = &details.user_media_details
+        {
+            self.edited_media = Some(user_details.clone());
+            self.active_popup = Some(ActivePopup::EditMedia);
+            self.edit_popup_index = 0;
 
-                let start = user_details.started_at.to_string();
-                self.edit_start_date_text = if start == "Unknown" {
-                    String::new()
-                } else {
-                    start
-                };
+            let start = user_details.started_at.to_string();
+            self.edit_start_date_text = if start == "Unknown" {
+                String::new()
+            } else {
+                start
+            };
 
-                let end = user_details.completed_at.to_string();
-                self.edit_end_date_text = if end == "Unknown" { String::new() } else { end };
-                return;
-            }
+            let end = user_details.completed_at.to_string();
+            self.edit_end_date_text = if end == "Unknown" { String::new() } else { end };
+            return;
         }
 
+        let user_media_id = None;
         let progress = item.progress.unwrap_or(0);
         let status = item.status.unwrap_or(UserMediaStatus::Current);
         let media_id = item.id;
 
         self.edited_media = Some(UserMediaDetails {
+            user_media_id,
             media_id,
             progress,
             progress_volumes: None,

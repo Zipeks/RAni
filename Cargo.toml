@@ -1,5 +1,5 @@
 [package]
-name = "rust_tui_for_anilist"
+name = "RAni"
 version = "0.1.0"
 edition = "2024"
 

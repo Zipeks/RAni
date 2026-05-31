@@ -9,10 +9,10 @@ impl Utils {
         let current_date = chrono::Utc::now();
         let month = current_date.month();
         match month {
-            1 | 2 | 3 => Season::WINTER,
-            4 | 5 | 6 => Season::SPRING,
-            7 | 8 | 9 => Season::SUMMER,
-            10 | 11 | 12 => Season::FALL,
+            1..=3 => Season::Winter,
+            4..=6 => Season::Spring,
+            7..=9 => Season::Summer,
+            10..=12 => Season::Fall,
             _ => unimplemented!(),
         }
     }

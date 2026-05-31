@@ -4,10 +4,7 @@ use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 use tracing::info;
 
-use crate::app_helper_structs::{MediaType, UserMediaDetails};
-
-// crate::anilist::{get_user_media_list};
-// crate::anilist::{get_media};
+use crate::app_helper_structs::UserMediaDetails;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -15,7 +12,6 @@ use crate::app_helper_structs::{MediaType, UserMediaDetails};
     query_path = "qraphql/get_media_details.graphql",
     response_derives = "Debug,Clone"
 )]
-
 pub struct GetMediaDetails;
 
 #[derive(GraphQLQuery)]
@@ -119,12 +115,12 @@ impl AnilistClient {
         let mapped_sort = sort.map(|s| s.into_iter().map(Some).collect());
 
         let variables = get_user_media_list::Variables {
-            user_id: user_id,
-            status: status,
+            user_id,
+            status,
             sort: mapped_sort,
-            page: page,
-            per_page: per_page,
-            type_: type_,
+            page,
+            per_page,
+            type_,
         };
 
         let request_body = GetUserMediaList::build_query(variables);
@@ -200,7 +196,7 @@ impl AnilistClient {
             sort: mapped_sort,
             page,
             per_page,
-            type_: type_,
+            type_,
             search: clean_search,
             format,
         };
@@ -255,11 +251,9 @@ impl AnilistClient {
     pub async fn get_media_details(
         &self,
         media_id: i64,
-        media_type: MediaType,
     ) -> Result<get_media_details::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
         let variables = get_media_details::Variables {
-            media_id: media_id,
-            type_: media_type.to_get_media_details(),
+            media_id,
             format: None,
         };
 
@@ -283,6 +277,7 @@ impl AnilistClient {
             .await?;
 
         let raw_response_text = res.text().await?;
+        info!(raw_response_text);
 
         self.details_cache
             .insert(media_id, raw_response_text.clone())

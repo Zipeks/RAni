@@ -571,6 +571,7 @@ impl Date {
 #[derive(Clone)]
 pub struct UserMediaDetails {
     pub media_id: i64,
+    pub user_media_id: Option<i64>,
     pub progress: i64,
     pub progress_volumes: Option<i64>,
     pub repeat: i64,
@@ -681,6 +682,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
 
         let mut user_media_details = None;
         if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
+            let user_media_id = Some(m.id);
             let media_id = m.media_id;
             let score = m.score.unwrap_or(0.0);
             let progress = m.progress.unwrap_or(0);
@@ -715,6 +717,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             let notes = m.notes.clone().unwrap_or(String::new());
 
             user_media_details = Some(UserMediaDetails {
+                user_media_id,
                 media_id,
                 score,
                 progress,
@@ -747,29 +750,29 @@ impl From<get_media_details::ResponseData> for MediaDetails {
     }
 }
 pub enum Season {
-    WINTER,
-    SPRING,
-    SUMMER,
-    FALL,
+    Winter,
+    Spring,
+    Summer,
+    Fall,
     Unknown,
 }
 impl Season {
-    pub const ALL: [Season; 4] = [Season::WINTER, Season::SPRING, Season::SUMMER, Season::FALL];
+    pub const ALL: [Season; 4] = [Season::Winter, Season::Spring, Season::Summer, Season::Fall];
     pub fn next(&self) -> Self {
         match self {
-            Season::WINTER => Season::SPRING,
-            Season::SPRING => Season::SUMMER,
-            Season::SUMMER => Season::FALL,
-            Season::FALL => Season::WINTER,
+            Season::Winter => Season::Spring,
+            Season::Spring => Season::Summer,
+            Season::Summer => Season::Fall,
+            Season::Fall => Season::Winter,
             Season::Unknown => Season::Unknown,
         }
     }
     pub fn to_get_media_media_season(&self) -> get_media::MediaSeason {
         match self {
-            Season::WINTER => get_media::MediaSeason::WINTER,
-            Season::SPRING => get_media::MediaSeason::SPRING,
-            Season::SUMMER => get_media::MediaSeason::SUMMER,
-            Season::FALL => get_media::MediaSeason::FALL,
+            Season::Winter => get_media::MediaSeason::WINTER,
+            Season::Spring => get_media::MediaSeason::SPRING,
+            Season::Summer => get_media::MediaSeason::SUMMER,
+            Season::Fall => get_media::MediaSeason::FALL,
             Season::Unknown => get_media::MediaSeason::Other("".to_string()),
         }
     }
@@ -777,10 +780,10 @@ impl Season {
 impl From<get_media_details::MediaSeason> for Season {
     fn from(value: get_media_details::MediaSeason) -> Self {
         match value {
-            get_media_details::MediaSeason::WINTER => Season::WINTER,
-            get_media_details::MediaSeason::SPRING => Season::SPRING,
-            get_media_details::MediaSeason::SUMMER => Season::SUMMER,
-            get_media_details::MediaSeason::FALL => Season::FALL,
+            get_media_details::MediaSeason::WINTER => Season::Winter,
+            get_media_details::MediaSeason::SPRING => Season::Spring,
+            get_media_details::MediaSeason::SUMMER => Season::Summer,
+            get_media_details::MediaSeason::FALL => Season::Fall,
             _ => Season::Unknown,
         }
     }
@@ -789,10 +792,10 @@ impl From<get_media_details::MediaSeason> for Season {
 impl std::fmt::Display for Season {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Season::WINTER => "Winter",
-            Season::SPRING => "Spring",
-            Season::SUMMER => "Summer",
-            Season::FALL => "Fall",
+            Season::Winter => "Winter",
+            Season::Spring => "Spring",
+            Season::Summer => "Summer",
+            Season::Fall => "Fall",
             Season::Unknown => "Unknown",
         };
         write!(f, "{}", s)
