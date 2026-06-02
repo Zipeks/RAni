@@ -5,19 +5,19 @@ use ratatui::{
 };
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
-    let popup_area = centered_rect(60, 18, frame.area());
+    let popup_area = centered_rect(60, 7, frame.area());
 
     frame.render_widget(Clear, popup_area);
 
     let popup_block = Block::default()
-        .title(" Favourite ")
+        .title(Line::from(" Favourite ").centered())
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::Red));
+        .border_style(Style::default().fg(Color::Cyan));
 
     let favourite_p = Paragraph::new(vec![
-        Line::from(" Do you want to change favourite status? "),
-        Line::from(" y/n "),
+        Line::from(" Do you want to change favourite status? ").centered(),
+        Line::from(" Y/N ").centered(),
     ])
     .block(popup_block)
     .wrap(Wrap { trim: false });

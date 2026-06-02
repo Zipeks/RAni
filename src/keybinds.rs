@@ -2,7 +2,7 @@ use crate::{
     app::{App, AppAction},
     app_helper_structs::{
         ActiveBlock,
-        ActivePopup::{self, Favourite},
+        ActivePopup::{self},
         BrowseCategory, CurrentView, TitleLanguage,
     },
 };
@@ -262,7 +262,7 @@ pub fn handle_edit_media_popup_events(
                         }
                         CurrentEditField::Rewatch => {
                             if let Some(digit) = c.to_digit(10) {
-                                media.repeat = media.repeat * 10 + (digit as i64).clamp(0, 10000);
+                                media.repeat = (media.repeat * 10 + (digit as i64)).clamp(0, 10000);
                             }
                         }
                         CurrentEditField::StartDate => app.edit_start_date_text.push(c),

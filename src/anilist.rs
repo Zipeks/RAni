@@ -2,7 +2,6 @@ use graphql_client::{GraphQLQuery, Response};
 use moka::future::Cache;
 use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
-use tracing::info;
 
 use crate::app_helper_structs::{MediaType, UserMediaDetails};
 
@@ -285,7 +284,6 @@ impl AnilistClient {
             .await?;
 
         let raw_response_text = res.text().await?;
-        info!(raw_response_text);
 
         self.details_cache
             .insert(media_id, raw_response_text.clone())
@@ -345,10 +343,7 @@ impl AnilistClient {
         anime_id: Option<i64>,
         manga_id: Option<i64>,
     ) -> Result<toggle_favourite::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
-        let variables = toggle_favourite::Variables {
-            anime_id: anime_id.map(|id| id as i64),
-            manga_id: manga_id.map(|id| id as i64),
-        };
+        let variables = toggle_favourite::Variables { anime_id, manga_id };
 
         let request_body = ToggleFavourite::build_query(variables);
         let mut json_body = serde_json::to_value(&request_body)?;
