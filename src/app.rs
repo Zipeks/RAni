@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use crate::anilist::{AnilistClient, get_media, get_user_media_list};
 use crate::app_helper_structs::{
@@ -49,6 +51,8 @@ pub struct App {
     pub edit_is_manga: bool,
     pub edit_start_date_text: String,
     pub edit_end_date_text: String,
+
+    pub latest_details_req_id: Arc<AtomicUsize>,    
 }
 
 impl App {
@@ -87,6 +91,8 @@ impl App {
             edit_is_manga: false,
             edit_end_date_text: String::new(),
             edit_start_date_text: String::new(),
+
+            latest_details_req_id: Arc::new(AtomicUsize::new(0)),
         }
     }
     pub fn set_error(&mut self, error_message: String) {
@@ -288,7 +294,7 @@ impl App {
         if let Some(media) = &mut self.browse_state.media
             && media.page_info.has_next_page.unwrap_or(false)
         {
-            media.page_info.current_page -= 1;
+            media.page_info.current_page += 1;
         }
     }
 
@@ -447,11 +453,6 @@ impl App {
         client: crate::anilist::AnilistClient,
         tx: Sender<AppAction>,
     ) {
-        if self.is_loading {
-            return;
-        }
-
-        self.clean_media_details();
         let selected_index = self.browse_state.state.selected();
         let current_items = self.get_current_center_items();
 
@@ -464,13 +465,23 @@ impl App {
 
         let media_id = current_items[idx].id;
 
+        self.clean_media_details();
         self.is_loading = true;
         self.error_message = None;
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();
 
+        let req_id = self.latest_details_req_id.fetch_add(1, Ordering::SeqCst) + 1;
+        let req_id_clone = self.latest_details_req_id.clone();
+
         tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+
+            if req_id_clone.load(Ordering::SeqCst) != req_id {
+                return;
+            }
+
             let timeout_duration = Duration::from_secs(5);
             let fetch_future = client_clone.get_media_details(media_id);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
@@ -478,6 +489,10 @@ impl App {
             let tx_for_action = tx_clone.clone();
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
+
+                if app.latest_details_req_id.load(Ordering::SeqCst) != req_id {
+                    return; 
+                }
 
                 match timeout_result {
                     Ok(Ok(data)) => {
@@ -534,6 +549,7 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+
     pub fn get_current_edit_fields(&self) -> Vec<crate::app_helper_structs::CurrentEditField> {
         use crate::app_helper_structs::CurrentEditField;
         let mut fields = vec![CurrentEditField::Status, CurrentEditField::EpisodeProgress];
@@ -726,6 +742,77 @@ impl App {
             let _ = tx.send(action);
         });
     }
+
+    pub fn fetch_delete_media(
+        &mut self,
+        client: crate::anilist::AnilistClient,
+        tx: Sender<AppAction>,
+    ) {
+        if self.is_loading {
+            return;
+        }
+
+        let Some(media_details) = &self.media_details else {
+            return;
+        };
+        let id = media_details.media_id;
+
+        let Some(user_media_details) = &media_details.user_media_details else {
+            return;
+        };
+        let Some(user_media_id) = user_media_details.user_media_id else {
+            return; 
+        };
+
+        self.is_loading = true;
+        self.error_message = None;
+
+        let client_clone = client.clone();
+        let tx_clone = tx.clone();
+        let client_for_action = client.clone();
+        let tx_for_action = tx.clone();
+
+        tokio::spawn(async move {
+            let timeout_duration = Duration::from_secs(5);
+
+            let fetch_future = client_clone.delete_media(user_media_id);
+            let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
+
+            let is_success = matches!(timeout_result, Ok(Ok(_)));
+
+            if is_success {
+                client_clone.delete_from_details_cache(id).await;
+                client_clone.clear_media_list_cache();
+                
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+            
+            let action: AppAction = Box::new(move |app: &mut App| {
+                app.is_loading = false;
+                match timeout_result {
+                    Ok(Ok(_data)) => {
+                        app.clean_media_details();
+
+                        match app.current_view {
+                            CurrentView::UserAnime | CurrentView::UserManga => {
+                                app.fetch_user_media(client_for_action, tx_for_action);
+                            }
+                            CurrentView::BrowseAnime | CurrentView::BrowseManga => {
+                                app.fetch_browse(client_for_action, tx_for_action);
+                            }
+                        }
+                    }
+                    Ok(Err(api_error)) => {
+                        app.set_error(format!("API error: {}", api_error));
+                    }
+                    Err(_) => {
+                        app.set_error("Server timeout".to_string());
+                    }
+                }
+            });
+            let _ = tx_clone.send(action);
+        });
+    }
 }
 
 pub type AppAction = Box<dyn FnOnce(&mut App) + Send>;
@@ -769,6 +856,12 @@ where
                         tx.clone(),
                     ),
                     ActivePopup::Favourite => keybinds::handle_favourite_popup_events(
+                        app,
+                        key,
+                        client.clone(),
+                        tx.clone(),
+                    ),
+                    ActivePopup::DeleteMedia => keybinds::handle_delete_media_popup_events(
                         app,
                         key,
                         client.clone(),

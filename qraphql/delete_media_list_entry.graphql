@@ -1,4 +1,4 @@
-mutation DeleteMediaListEntry($deleteMediaListEntryId: Int) {
+mutation DeleteMediaListEntry($deleteMediaListEntryId: Int!) {
   DeleteMediaListEntry(id: $deleteMediaListEntryId) {
     deleted
   }

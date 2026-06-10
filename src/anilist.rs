@@ -53,6 +53,14 @@ pub struct UpdateEntry;
 )]
 pub struct ToggleFavourite;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.json",
+    query_path = "qraphql/delete_media_list_entry.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub struct DeleteMediaListEntry;
+
 #[derive(Clone)]
 pub struct AnilistClient {
     http_client: Client,
@@ -371,6 +379,34 @@ impl AnilistClient {
 
         response_body.data.ok_or_else(|| "No data".into())
     }
+
+    pub async fn delete_media(
+        &self,
+        media_id: i64,
+    ) -> Result<toggle_favourite::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+        let variables = delete_media_list_entry::Variables { 
+            delete_media_list_entry_id: media_id
+        };
+
+        let request_body = DeleteMediaListEntry::build_query(variables);
+
+        let res = self
+            .http_client
+            .post(self.api_url)
+            .json(&request_body)
+            .send()
+            .await?;
+
+        let response_body: graphql_client::Response<toggle_favourite::ResponseData> =
+            res.json().await?;
+
+        if let Some(errors) = response_body.errors {
+            return Err(format!("GraphQL Error: {:?}", errors).into());
+        }
+
+        response_body.data.ok_or_else(|| "No data".into())
+    }
+
     pub async fn update_details_cache_favourite(&self, media_id: i64, is_favourite: bool) {
         if let Some(cached_response) = self.details_cache.get(&media_id).await
             && let Ok(mut json_val) = serde_json::from_str::<serde_json::Value>(&cached_response)
@@ -394,7 +430,6 @@ impl AnilistClient {
             }
         }
     }
-
     pub fn clear_media_list_cache(&self) {
         self.media_list_cache.invalidate_all();
     }

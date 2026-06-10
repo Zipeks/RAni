@@ -831,4 +831,5 @@ pub enum ActivePopup {
     Error,
     EditMedia,
     Favourite,
+    DeleteMedia,
 }

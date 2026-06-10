@@ -141,6 +141,9 @@ pub fn handle_details_events(
         KeyCode::Char('f') => {
             app.active_popup = Some(ActivePopup::Favourite);
         }
+        KeyCode::Char('d') => {
+            app.active_popup = Some(ActivePopup::DeleteMedia);
+        }
         _ => {}
     }
 }
@@ -182,6 +185,21 @@ pub fn handle_favourite_popup_events(
         KeyCode::Esc | KeyCode::Char('n') => app.active_popup = None,
         KeyCode::Char('y') | KeyCode::Enter => {
             app.fetch_toggle_favourite(client, tx);
+            app.active_popup = None
+        }
+        _ => {}
+    }
+}
+pub fn handle_delete_media_popup_events(
+    app: &mut App,
+    key: KeyEvent,
+    client: crate::anilist::AnilistClient,
+    tx: Sender<AppAction>,
+) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('n') => app.active_popup = None,
+        KeyCode::Char('y') | KeyCode::Enter => {
+            app.fetch_delete_media(client, tx);
             app.active_popup = None
         }
         _ => {}
@@ -282,7 +300,7 @@ pub fn handle_edit_media_popup_events(
             KeyCode::Char('s') => {
                 fn parse_date(date_str: &str) -> crate::app_helper_structs::Date {
                     let parts: Vec<&str> = date_str.split('-').collect();
-                    let year = parts.get(0).and_then(|s| s.parse().ok());
+                    let year = parts.first().and_then(|s| s.parse().ok());
                     let month = parts.get(1).and_then(|s| s.parse().ok());
                     let day = parts.get(2).and_then(|s| s.parse().ok());
                     crate::app_helper_structs::Date { year, month, day }
@@ -321,14 +339,14 @@ pub fn handle_edit_media_popup_events(
                             }
                         }
                         CurrentEditField::EpisodeProgress => {
-                            media.progress = (media.progress as i64 + step).clamp(
+                            media.progress = (media.progress + step).clamp(
                                 0,
                                 app.media_details.as_ref().unwrap().total.unwrap_or(20000),
                             )
                         }
                         CurrentEditField::VolumeProgress => {
                             let mut vols = media.progress_volumes.unwrap_or(0);
-                            vols = (vols as i64 + step).clamp(
+                            vols = (vols + step).clamp(
                                 0,
                                 app.media_details.as_ref().unwrap().volumes.unwrap_or(20000),
                             );
@@ -338,7 +356,7 @@ pub fn handle_edit_media_popup_events(
                             media.score = (media.score + step as f64).clamp(0.0, 100.0)
                         }
                         CurrentEditField::Rewatch => {
-                            media.repeat = (media.repeat as i64 + step).clamp(0, 100000)
+                            media.repeat = (media.repeat + step).clamp(0, 100000)
                         }
                         _ => {}
                     }

@@ -42,7 +42,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                 Span::raw("Edit status: e"),
                 Span::raw(" | "),
                 Span::raw("Toggle favourite: f"),
-            ]
+                Span::raw(" | "),
+                Span::raw("Delete media: d"),
+            ],
         }
     }))
     .left_aligned();
