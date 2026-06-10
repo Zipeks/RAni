@@ -144,6 +144,9 @@ pub fn handle_details_events(
         KeyCode::Char('d') => {
             app.active_popup = Some(ActivePopup::DeleteMedia);
         }
+        KeyCode::Char('o') => {
+            app.open_anilist();
+        }
         _ => {}
     }
 }

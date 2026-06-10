@@ -10,10 +10,10 @@ use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
 use std::collections::HashMap;
 use std::io;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 use crate::anilist::{AnilistClient, get_media, get_user_media_list};
 use crate::app_helper_structs::{
@@ -52,7 +52,7 @@ pub struct App {
     pub edit_start_date_text: String,
     pub edit_end_date_text: String,
 
-    pub latest_details_req_id: Arc<AtomicUsize>,    
+    pub latest_details_req_id: Arc<AtomicUsize>,
 }
 
 impl App {
@@ -306,6 +306,15 @@ impl App {
         }
     }
 
+    pub fn open_anilist(&mut self) {
+        if let Some(media_details) = &self.media_details {
+            match open::that(&media_details.site_url) {
+                Ok(()) => {}
+                Err(err) => self.set_error(format!("Something went wrong {}", err)),
+            };
+        }
+    }
+
     pub fn fetch_browse(&mut self, client: crate::anilist::AnilistClient, tx: Sender<AppAction>) {
         self.fetch_media(
             client,
@@ -491,7 +500,7 @@ impl App {
                 app.is_loading = false;
 
                 if app.latest_details_req_id.load(Ordering::SeqCst) != req_id {
-                    return; 
+                    return;
                 }
 
                 match timeout_result {
@@ -761,7 +770,7 @@ impl App {
             return;
         };
         let Some(user_media_id) = user_media_details.user_media_id else {
-            return; 
+            return;
         };
 
         self.is_loading = true;
@@ -783,10 +792,10 @@ impl App {
             if is_success {
                 client_clone.delete_from_details_cache(id).await;
                 client_clone.clear_media_list_cache();
-                
+
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
-            
+
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
                 match timeout_result {

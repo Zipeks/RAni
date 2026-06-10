@@ -3,51 +3,32 @@ use crate::{app::App, app_helper_structs::ActiveBlock};
 use ratatui::{prelude::*, widgets::*};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    let keybinds_info = Paragraph::new(Line::from({
-        match app.active_block {
-            ActiveBlock::Sidebar => vec![
-                Span::raw("  "),
-                Span::raw("Up: k"),
-                Span::raw(" | "),
-                Span::raw("Down: j"),
-                Span::raw(" | "),
-                Span::raw("Right: l"),
-            ],
-            ActiveBlock::Center => vec![
-                Span::raw("  "),
-                Span::raw("Up: k"),
-                Span::raw(" | "),
-                Span::raw("Down: j"),
-                Span::raw(" | "),
-                Span::raw("Left: h"),
-                Span::raw(" | "),
-                Span::raw("Right: l"),
-                Span::raw(" | "),
-                Span::raw("Next page: n"),
-                Span::raw(" | "),
-                Span::raw("Prev page: p"),
-                Span::raw(" | "),
-                Span::raw("Change category: ]/Tab"),
-            ],
-            ActiveBlock::Details => vec![
-                Span::raw("  "),
-                Span::raw("Up: k"),
-                Span::raw(" | "),
-                Span::raw("Down: j"),
-                Span::raw(" | "),
-                Span::raw("Sidebar: h"),
-                Span::raw(" | "),
-                Span::raw("Left: l"),
-                Span::raw(" | "),
-                Span::raw("Edit status: e"),
-                Span::raw(" | "),
-                Span::raw("Toggle favourite: f"),
-                Span::raw(" | "),
-                Span::raw("Delete media: d"),
-            ],
-        }
-    }))
-    .left_aligned();
+    let binds = match app.active_block {
+        ActiveBlock::Sidebar => vec!["Up: k", "Down: j", "Right: l"],
+        ActiveBlock::Center => vec![
+            "Up: k",
+            "Down: j",
+            "Sidebar: h",
+            "Details: l",
+            "Next page: n",
+            "Prev page: p",
+            "Category: ]/Tab",
+        ],
+        ActiveBlock::Details => vec![
+            "Up: k",
+            "Down: j",
+            "Center: h",
+            "Edit status: e",
+            "Toggle favourite: f",
+            "Delete media: d",
+            "Open anilist: o",
+        ],
+    };
 
+    let joined_text = binds.join(" | ");
+
+    let info = vec![Span::raw("  "), Span::raw(joined_text)];
+
+    let keybinds_info = Paragraph::new(Line::from(info)).left_aligned();
     frame.render_widget(keybinds_info, area);
 }

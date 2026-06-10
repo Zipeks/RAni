@@ -384,8 +384,8 @@ impl AnilistClient {
         &self,
         media_id: i64,
     ) -> Result<toggle_favourite::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
-        let variables = delete_media_list_entry::Variables { 
-            delete_media_list_entry_id: media_id
+        let variables = delete_media_list_entry::Variables {
+            delete_media_list_entry_id: media_id,
         };
 
         let request_body = DeleteMediaListEntry::build_query(variables);
