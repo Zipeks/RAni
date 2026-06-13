@@ -34,6 +34,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             }
             ActivePopup::Favourite => popups::favourite::draw(frame, app),
             ActivePopup::DeleteMedia => popups::delete_media::draw(frame, app),
+            ActivePopup::SearchFilter => todo!(),
         }
     }
 }

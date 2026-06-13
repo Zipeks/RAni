@@ -1,4 +1,5 @@
 use crate::{
+    anilist::client::AnilistClient,
     app::{App, AppAction},
     app_helper_structs::{
         ActiveBlock,
@@ -13,7 +14,7 @@ use std::sync::mpsc::Sender;
 pub fn handle_sidebar_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     match key.code {
@@ -43,7 +44,7 @@ pub fn handle_sidebar_events(
 pub fn handle_center_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     match key.code {
@@ -112,7 +113,7 @@ pub fn handle_center_events(
 pub fn handle_details_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     match key.code {
@@ -181,7 +182,7 @@ pub fn handle_error_popup_events(app: &mut App, key: KeyEvent) {
 pub fn handle_favourite_popup_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     match key.code {
@@ -196,7 +197,7 @@ pub fn handle_favourite_popup_events(
 pub fn handle_delete_media_popup_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     match key.code {
@@ -211,7 +212,7 @@ pub fn handle_delete_media_popup_events(
 pub fn handle_edit_media_popup_events(
     app: &mut App,
     key: KeyEvent,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
     use crate::app_helper_structs::CurrentEditField;

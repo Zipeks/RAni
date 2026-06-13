@@ -3,90 +3,15 @@ use moka::future::Cache;
 use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 
-use crate::app_helper_structs::{
-    MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort, MediaStatus, MediaType,
-    SearchFilter, UserMediaDetails,
+use crate::anilist::anilist_types::{
+    DeleteMediaListEntry, GetBasicViewer, GetMedia, GetMediaDetails, GetUserMediaList,
+    ToggleFavourite, UpdateEntry, delete_media_list_entry, get_basic_viewer, get_media,
+    get_media_details, get_user_media_list, toggle_favourite, update_entry,
 };
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_media_details.graphql",
-    response_derives = "Debug,Clone",
-    extern_enums(
-        "MediaType",
-        "MediaSort",
-        "MediaStatus",
-        "MediaSeason",
-        "MediaFormat",
-        "MediaListStatus"
-    ),
-    skip_serializing_none
-)]
-pub struct GetMediaDetails;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_basic_viewer.graphql",
-    response_derives = "Debug",
-    skip_serializing_none
-)]
-pub struct GetBasicViewer;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_user_media_list.graphql",
-    response_derives = "Debug, Clone",
-    extern_enums(
-        "MediaType",
-        "MediaListSort",
-        "MediaListStatus",
-        "MediaFormat",
-        "MediaSeason"
-    ),
-    skip_serializing_none
-)]
-pub struct GetUserMediaList;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/get_media.graphql",
-    response_derives = "Debug, Clone",
-    extern_enums("MediaType", "MediaSort", "MediaStatus", "MediaSeason", "MediaFormat"),
-    skip_serializing_none
-)]
-pub struct GetMedia;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/update_entry.graphql",
-    response_derives = "Debug, Clone",
-    extern_enums("MediaListStatus"),
-    skip_serializing_none
-)]
-pub struct UpdateEntry;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/toggle_favourite.graphql",
-    response_derives = "Debug, Clone",
-    skip_serializing_none
-)]
-pub struct ToggleFavourite;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "schema.json",
-    query_path = "qraphql/delete_media_list_entry.graphql",
-    response_derives = "Debug, Clone",
-    skip_serializing_none
-)]
-pub struct DeleteMediaListEntry;
+pub use crate::app_helper_structs::{
+    MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort, MediaStatus, MediaType,
+};
+use crate::app_helper_structs::{SearchFilter, UserMediaDetails};
 
 #[derive(Clone)]
 pub struct AnilistClient {

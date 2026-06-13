@@ -14,11 +14,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
-use crate::anilist::AnilistClient;
+pub use crate::anilist::anilist_types::{MediaListSort, MediaListStatus, MediaType};
+use crate::anilist::client::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
-    MediaListItem, MediaListSort, MediaListStatus, MediaType, SearchFilter, TitleLanguage, User,
-    UserMediaDetails, UserMediaList,
+    MediaListItem, SearchFilter, TitleLanguage, User, UserMediaDetails, UserMediaList,
 };
 
 pub struct App {
@@ -70,6 +70,7 @@ impl App {
             error_message: None,
 
             browse_state: BrowseState {
+                active_filters: HashMap::new(),
                 loaded_view: CurrentView::UserAnime,
                 media: None,
                 state: TableState::default(),
@@ -161,11 +162,7 @@ impl App {
             .select(Some((current + count - 1) % count));
     }
 
-    pub fn fetch_user_media(
-        &mut self,
-        client: crate::anilist::AnilistClient,
-        tx: Sender<AppAction>,
-    ) {
+    pub fn fetch_user_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         self.fetch_user_media_list(
             client,
             tx,
@@ -201,7 +198,7 @@ impl App {
 
     pub fn fetch_user_media_list(
         &mut self,
-        client: crate::anilist::AnilistClient,
+        client: AnilistClient,
         tx: Sender<AppAction>,
         status: Option<MediaListStatus>,
         sort: Option<Vec<Option<MediaListSort>>>,
@@ -302,7 +299,7 @@ impl App {
         }
     }
 
-    pub fn fetch_browse(&mut self, client: crate::anilist::AnilistClient, tx: Sender<AppAction>) {
+    pub fn fetch_browse(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         self.fetch_media(
             client,
             tx,
@@ -331,7 +328,7 @@ impl App {
 
     pub fn fetch_media(
         &mut self,
-        client: crate::anilist::AnilistClient,
+        client: AnilistClient,
         tx: Sender<AppAction>,
         page: Option<i64>,
         per_page: Option<i64>,
@@ -388,11 +385,7 @@ impl App {
     pub fn clean_media_details(&mut self) {
         self.media_details = None;
     }
-    pub fn fetch_media_details(
-        &mut self,
-        client: crate::anilist::AnilistClient,
-        tx: Sender<AppAction>,
-    ) {
+    pub fn fetch_media_details(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         let selected_index = self.browse_state.state.selected();
         let current_items = self.get_current_center_items();
 
@@ -621,11 +614,7 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
-    pub fn fetch_toggle_favourite(
-        &mut self,
-        client: crate::anilist::AnilistClient,
-        tx: Sender<AppAction>,
-    ) {
+    pub fn fetch_toggle_favourite(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         if self.is_loading {
             return;
         }
@@ -683,11 +672,7 @@ impl App {
         });
     }
 
-    pub fn fetch_delete_media(
-        &mut self,
-        client: crate::anilist::AnilistClient,
-        tx: Sender<AppAction>,
-    ) {
+    pub fn fetch_delete_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         if self.is_loading {
             return;
         }
@@ -760,7 +745,7 @@ pub type AppAction = Box<dyn FnOnce(&mut App) + Send>;
 pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
-    client: crate::anilist::AnilistClient,
+    client: AnilistClient,
     tx: Sender<AppAction>,
     rx: &Receiver<AppAction>,
 ) -> io::Result<bool>
@@ -807,6 +792,7 @@ where
                         client.clone(),
                         tx.clone(),
                     ),
+                    ActivePopup::SearchFilter => todo!(),
                 }
                 continue;
             }
@@ -830,7 +816,7 @@ where
     }
 }
 
-fn spawn_initial_viewer_fetch(client: crate::anilist::AnilistClient, tx: Sender<AppAction>) {
+fn spawn_initial_viewer_fetch(client: AnilistClient, tx: Sender<AppAction>) {
     let client_clone = client.clone();
     let tx_clone = tx.clone();
 

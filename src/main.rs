@@ -1,4 +1,4 @@
-use crate::anilist::AnilistClient;
+use crate::anilist::client::AnilistClient;
 use crate::app::{App, run_app};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;

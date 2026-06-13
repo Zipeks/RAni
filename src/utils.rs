@@ -1,4 +1,4 @@
-use crate::app_helper_structs::MediaSeason;
+use crate::anilist::anilist_types::MediaSeason;
 use chrono::Datelike;
 pub struct Utils {}
 impl Utils {

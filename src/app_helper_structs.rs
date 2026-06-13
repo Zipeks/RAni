@@ -1,4 +1,17 @@
-use serde::{Deserialize, Serialize};
+pub use crate::anilist::anilist_types::{
+    MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort, MediaStatus, MediaType,
+};
+use crate::{
+    anilist::anilist_types::{
+        get_media, get_media_details,
+        get_user_media_list::{self},
+        update_entry,
+    },
+    utils::Utils,
+};
+
+use ratatui::widgets::TableState;
+use std::collections::HashMap;
 
 #[derive(PartialEq)]
 pub enum ActiveBlock {
@@ -7,7 +20,7 @@ pub enum ActiveBlock {
     Details,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CurrentView {
     UserAnime,
     UserManga,
@@ -53,90 +66,6 @@ pub struct PageInfo {
     pub total: Option<i64>,
     pub last_page: Option<i64>,
     pub has_next_page: Option<bool>,
-}
-
-use ratatui::widgets::TableState;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaListStatus {
-    Current,
-    Planning,
-    Completed,
-    Repeating,
-    Dropped,
-    Paused,
-    #[serde(other)]
-    Unknown,
-}
-impl MediaListStatus {
-    pub const ALL: [MediaListStatus; 6] = [
-        MediaListStatus::Planning,
-        MediaListStatus::Current,
-        MediaListStatus::Completed,
-        MediaListStatus::Dropped,
-        MediaListStatus::Paused,
-        MediaListStatus::Repeating,
-    ];
-    pub fn next(&self) -> Self {
-        let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
-        Self::ALL[(index + 1) % Self::ALL.len()]
-    }
-
-    pub fn previous(&self) -> Self {
-        let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
-        Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
-    }
-}
-
-impl std::fmt::Display for MediaListStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            MediaListStatus::Current => "Current",
-            MediaListStatus::Planning => "Planning",
-            MediaListStatus::Completed => "Completed",
-            MediaListStatus::Dropped => "Dropped",
-            MediaListStatus::Paused => "Paused",
-            MediaListStatus::Repeating => "Repeating",
-            MediaListStatus::Unknown => "Unknown",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-use crate::{
-    anilist::{
-        get_media, get_media_details,
-        get_user_media_list::{self},
-        update_entry,
-    },
-    utils::Utils,
-};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaStatus {
-    Finished,
-    Releasing,
-    NotYetReleased,
-    Cancelled,
-    Hiatus,
-    #[serde(other)]
-    Unknown,
-}
-
-impl std::fmt::Display for MediaStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            MediaStatus::Finished => "Finished",
-            MediaStatus::Releasing => "Releasing",
-            MediaStatus::NotYetReleased => "Not yet released",
-            MediaStatus::Cancelled => "Cancelled",
-            MediaStatus::Hiatus => "Hiatus",
-            MediaStatus::Unknown => "Unknown",
-        };
-        write!(f, "{}", s)
-    }
 }
 
 pub struct UserMediaList {
@@ -305,6 +234,7 @@ pub struct NextAiringEpisode {
     pub episode: i64,
     pub time_until_airing: i64,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TitleLanguage {
     UserPreferred,
@@ -367,6 +297,7 @@ impl Titles {
         }
     }
 }
+
 #[derive(Clone, Debug)]
 pub struct MediaListItem {
     pub id: i64,
@@ -378,13 +309,15 @@ pub struct MediaListItem {
     pub next_airing_episode: Option<NextAiringEpisode>,
     pub type_: MediaType,
 }
-#[derive(PartialEq, Clone, Copy)]
+
+#[derive(PartialEq, Clone, Copy, Eq, Hash)]
 pub enum BrowseCategory {
     CategoryOne,
     CategoryTwo,
     CategoryThree,
     Search,
 }
+
 impl BrowseCategory {
     pub const ALL: [BrowseCategory; 4] = [
         BrowseCategory::CategoryOne,
@@ -451,15 +384,7 @@ pub struct BrowseState {
     pub media: Option<UserMediaList>,
     pub state: TableState,
     pub current_category: BrowseCategory,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaType {
-    Anime,
-    Manga,
-    #[serde(other)]
-    Unknown,
+    pub active_filters: HashMap<(CurrentView, BrowseCategory), SearchFilter>,
 }
 
 #[derive(Clone, Copy)]
@@ -679,46 +604,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaSeason {
-    Winter,
-    Spring,
-    Summer,
-    Fall,
-    #[serde(other)]
-    Unknown,
-}
-impl MediaSeason {
-    pub const ALL: [MediaSeason; 4] = [
-        MediaSeason::Winter,
-        MediaSeason::Spring,
-        MediaSeason::Summer,
-        MediaSeason::Fall,
-    ];
-    pub fn next(&self) -> Self {
-        match self {
-            MediaSeason::Winter => MediaSeason::Spring,
-            MediaSeason::Spring => MediaSeason::Summer,
-            MediaSeason::Summer => MediaSeason::Fall,
-            MediaSeason::Fall => MediaSeason::Winter,
-            MediaSeason::Unknown => MediaSeason::Unknown,
-        }
-    }
-}
 
-impl std::fmt::Display for MediaSeason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            MediaSeason::Winter => "Winter",
-            MediaSeason::Spring => "Spring",
-            MediaSeason::Summer => "Summer",
-            MediaSeason::Fall => "Fall",
-            MediaSeason::Unknown => "Unknown",
-        };
-        write!(f, "{}", s)
-    }
-}
 #[derive(Clone, Copy)]
 pub enum CurrentEditField {
     Status,
@@ -737,41 +623,7 @@ pub enum ActivePopup {
     EditMedia,
     Favourite,
     DeleteMedia,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaFormat {
-    Tv,
-    TvShort,
-    Movie,
-    OVA,
-    ONA,
-    Music,
-    Manga,
-    Novel,
-    OneShot,
-    #[serde(other)]
-    Unknown,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaListSort {
-    PopularityDesc,
-    TrendingDesc,
-    ScoreDesc,
-    #[serde(other)]
-    Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MediaSort {
-    PopularityDesc,
-    TrendingDesc,
-    ScoreDesc,
-    #[serde(other)]
-    Other,
+    SearchFilter,
 }
 
 pub struct SearchFilter {
