@@ -1,5 +1,4 @@
 use crate::ui::ui;
-use crate::utils::Utils;
 use crate::{auth, keybinds};
 use ratatui::Terminal;
 use ratatui::backend::Backend;
@@ -15,11 +14,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
-use crate::anilist::{AnilistClient, get_media, get_user_media_list};
+use crate::anilist::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
-    MediaListItem, MediaType, TitleLanguage, User, UserMediaDetails, UserMediaList,
-    UserMediaStatus,
+    MediaListItem, MediaListSort, MediaListStatus, MediaType, SearchFilter, TitleLanguage, User,
+    UserMediaDetails, UserMediaList,
 };
 
 pub struct App {
@@ -171,19 +170,13 @@ impl App {
             client,
             tx,
             match self.browse_state.current_category {
-                BrowseCategory::CategoryOne => Some(get_user_media_list::MediaListStatus::CURRENT),
-                BrowseCategory::CategoryTwo => {
-                    Some(get_user_media_list::MediaListStatus::COMPLETED)
-                }
-                BrowseCategory::CategoryThree => {
-                    Some(get_user_media_list::MediaListStatus::PLANNING)
-                }
+                BrowseCategory::CategoryOne => Some(MediaListStatus::Current),
+                BrowseCategory::CategoryTwo => Some(MediaListStatus::Completed),
+                BrowseCategory::CategoryThree => Some(MediaListStatus::Planning),
                 _ => None,
             },
             match self.browse_state.current_category {
-                BrowseCategory::CategoryTwo => {
-                    Some(vec![get_user_media_list::MediaListSort::SCORE_DESC])
-                }
+                BrowseCategory::CategoryTwo => Some(vec![Some(MediaListSort::ScoreDesc)]),
                 _ => None,
             },
             Some(
@@ -199,8 +192,8 @@ impl App {
                     .map_or(25, |m| m.page_info.per_page),
             ),
             match self.current_view {
-                CurrentView::UserAnime => get_user_media_list::MediaType::ANIME,
-                CurrentView::UserManga => get_user_media_list::MediaType::MANGA,
+                CurrentView::UserAnime => MediaType::Anime,
+                CurrentView::UserManga => MediaType::Manga,
                 _ => unimplemented!(),
             },
         );
@@ -210,11 +203,11 @@ impl App {
         &mut self,
         client: crate::anilist::AnilistClient,
         tx: Sender<AppAction>,
-        status: Option<get_user_media_list::MediaListStatus>,
-        sort: Option<Vec<get_user_media_list::MediaListSort>>,
+        status: Option<MediaListStatus>,
+        sort: Option<Vec<Option<MediaListSort>>>,
         page: Option<i64>,
         per_page: Option<i64>,
-        graphql_type: get_user_media_list::MediaType,
+        type_: MediaType,
     ) {
         if self.is_loading {
             return;
@@ -225,18 +218,12 @@ impl App {
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();
-        let status_for_sort = status.clone();
+        let status_for_sort = status;
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
-            let fetch_future = client_clone.get_user_media_list(
-                user_id,
-                status,
-                sort,
-                page,
-                per_page,
-                graphql_type,
-            );
+            let fetch_future =
+                client_clone.get_user_media_list(user_id, status, sort, page, per_page, type_);
 
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -244,7 +231,7 @@ impl App {
                 match timeout_result {
                     Ok(Ok(data)) => {
                         let mut clean_list = UserMediaList::from(data);
-                        if let Some(get_user_media_list::MediaListStatus::CURRENT) = status_for_sort
+                        if let Some(MediaListStatus::Current) = status_for_sort
                             && let Some(ref mut items) = clean_list.items
                         {
                             items.sort_by(|a, b| {
@@ -319,25 +306,6 @@ impl App {
         self.fetch_media(
             client,
             tx,
-            None,
-            match self.current_view {
-                CurrentView::BrowseAnime => match self.browse_state.current_category {
-                    BrowseCategory::CategoryOne => Some(vec![get_media::MediaSort::TRENDING_DESC]),
-                    BrowseCategory::CategoryTwo | BrowseCategory::CategoryThree => {
-                        Some(vec![get_media::MediaSort::POPULARITY_DESC])
-                    }
-                    _ => None,
-                },
-                CurrentView::BrowseManga => match self.browse_state.current_category {
-                    BrowseCategory::CategoryOne => Some(vec![get_media::MediaSort::TRENDING_DESC]),
-                    BrowseCategory::CategoryTwo => {
-                        Some(vec![get_media::MediaSort::POPULARITY_DESC])
-                    }
-                    BrowseCategory::CategoryThree => Some(vec![get_media::MediaSort::SCORE_DESC]),
-                    _ => None,
-                },
-                _ => unimplemented!(),
-            },
             Some(
                 self.browse_state
                     .media
@@ -357,29 +325,7 @@ impl App {
                     _ => MediaType::Unknown,
                 }
             },
-            match self.current_view {
-                CurrentView::BrowseAnime => match self.browse_state.current_category {
-                    BrowseCategory::CategoryTwo => {
-                        Some(Utils::get_season().to_get_media_media_season())
-                    }
-                    BrowseCategory::CategoryThree => {
-                        Some(Utils::get_season().next().to_get_media_media_season())
-                    }
-                    _ => None,
-                },
-                _ => None,
-            },
-            match self.current_view {
-                CurrentView::BrowseAnime => match self.browse_state.current_category {
-                    BrowseCategory::CategoryTwo | BrowseCategory::CategoryThree => {
-                        Some(Utils::get_year())
-                    }
-                    _ => None,
-                },
-                _ => None,
-            },
-            None,
-            None,
+            SearchFilter::empty(),
         );
     }
 
@@ -387,15 +333,10 @@ impl App {
         &mut self,
         client: crate::anilist::AnilistClient,
         tx: Sender<AppAction>,
-        status: Option<Vec<get_media::MediaStatus>>,
-        sort: Option<Vec<get_media::MediaSort>>,
         page: Option<i64>,
         per_page: Option<i64>,
         media_type: MediaType,
-        season: Option<get_media::MediaSeason>,
-        season_year: Option<i64>,
-        search: Option<String>,
-        format: Option<get_media::MediaFormat>,
+        search_filter: SearchFilter,
     ) {
         if self.is_loading {
             return;
@@ -408,17 +349,7 @@ impl App {
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
-            let fetch_future = client_clone.get_media(
-                media_type,
-                season,
-                season_year,
-                status,
-                sort,
-                page,
-                per_page,
-                search,
-                format,
-            );
+            let fetch_future = client_clone.get_media(media_type, search_filter, page, per_page);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
 
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -616,7 +547,7 @@ impl App {
 
         let user_media_id = None;
         let progress = item.progress.unwrap_or(0);
-        let status = item.status.unwrap_or(UserMediaStatus::Current);
+        let status = item.status.unwrap_or(MediaListStatus::Current);
         let media_id = item.id;
 
         self.edited_media = Some(UserMediaDetails {

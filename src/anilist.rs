@@ -3,13 +3,25 @@ use moka::future::Cache;
 use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 
-use crate::app_helper_structs::{MediaType, UserMediaDetails};
+use crate::app_helper_structs::{
+    MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort, MediaStatus, MediaType,
+    SearchFilter, UserMediaDetails,
+};
 
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_media_details.graphql",
-    response_derives = "Debug,Clone"
+    response_derives = "Debug,Clone",
+    extern_enums(
+        "MediaType",
+        "MediaSort",
+        "MediaStatus",
+        "MediaSeason",
+        "MediaFormat",
+        "MediaListStatus"
+    ),
+    skip_serializing_none
 )]
 pub struct GetMediaDetails;
 
@@ -17,7 +29,8 @@ pub struct GetMediaDetails;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_basic_viewer.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug",
+    skip_serializing_none
 )]
 pub struct GetBasicViewer;
 
@@ -25,7 +38,15 @@ pub struct GetBasicViewer;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_user_media_list.graphql",
-    response_derives = "Debug, Clone"
+    response_derives = "Debug, Clone",
+    extern_enums(
+        "MediaType",
+        "MediaListSort",
+        "MediaListStatus",
+        "MediaFormat",
+        "MediaSeason"
+    ),
+    skip_serializing_none
 )]
 pub struct GetUserMediaList;
 
@@ -33,7 +54,9 @@ pub struct GetUserMediaList;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/get_media.graphql",
-    response_derives = "Debug, Clone"
+    response_derives = "Debug, Clone",
+    extern_enums("MediaType", "MediaSort", "MediaStatus", "MediaSeason", "MediaFormat"),
+    skip_serializing_none
 )]
 pub struct GetMedia;
 
@@ -41,7 +64,9 @@ pub struct GetMedia;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/update_entry.graphql",
-    response_derives = "Debug, Clone"
+    response_derives = "Debug, Clone",
+    extern_enums("MediaListStatus"),
+    skip_serializing_none
 )]
 pub struct UpdateEntry;
 
@@ -49,7 +74,8 @@ pub struct UpdateEntry;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/toggle_favourite.graphql",
-    response_derives = "Debug, Clone"
+    response_derives = "Debug, Clone",
+    skip_serializing_none
 )]
 pub struct ToggleFavourite;
 
@@ -57,7 +83,8 @@ pub struct ToggleFavourite;
 #[graphql(
     schema_path = "schema.json",
     query_path = "qraphql/delete_media_list_entry.graphql",
-    response_derives = "Debug, Clone"
+    response_derives = "Debug, Clone",
+    skip_serializing_none
 )]
 pub struct DeleteMediaListEntry;
 
@@ -121,18 +148,16 @@ impl AnilistClient {
     pub async fn get_user_media_list(
         &self,
         user_id: i64,
-        status: Option<get_user_media_list::MediaListStatus>,
-        sort: Option<Vec<get_user_media_list::MediaListSort>>,
+        status: Option<MediaListStatus>,
+        sort: Option<Vec<Option<MediaListSort>>>,
         page: Option<i64>,
         per_page: Option<i64>,
-        type_: get_user_media_list::MediaType,
+        type_: MediaType,
     ) -> Result<get_user_media_list::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
-        let mapped_sort = sort.map(|s| s.into_iter().map(Some).collect());
-
         let variables = get_user_media_list::Variables {
             user_id,
             status,
-            sort: mapped_sort,
+            sort,
             page,
             per_page,
             type_,
@@ -140,14 +165,7 @@ impl AnilistClient {
 
         let request_body = GetUserMediaList::build_query(variables);
 
-        let mut json_body = serde_json::to_value(&request_body)?;
-
-        if let Some(vars) = json_body
-            .get_mut("variables")
-            .and_then(|v| v.as_object_mut())
-        {
-            vars.retain(|_, v| !v.is_null());
-        }
+        let json_body = serde_json::to_value(&request_body)?;
 
         let cache_key = json_body.to_string();
 
@@ -187,46 +205,27 @@ impl AnilistClient {
     pub async fn get_media(
         &self,
         type_: MediaType,
-        season: Option<get_media::MediaSeason>,
-        season_year: Option<i64>,
-        status: Option<Vec<get_media::MediaStatus>>,
-        sort: Option<Vec<get_media::MediaSort>>,
+        search_filter: SearchFilter,
         page: Option<i64>,
         per_page: Option<i64>,
-        search: Option<String>,
-        format: Option<get_media::MediaFormat>,
     ) -> Result<get_media::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
-        let mapped_sort = sort
-            .filter(|s| !s.is_empty())
-            .map(|s| s.into_iter().map(Some).collect());
-        let mapped_status = status
-            .filter(|s| !s.is_empty())
-            .map(|s| s.into_iter().map(Some).collect());
-        let clean_search = search.filter(|s| !s.trim().is_empty());
+        let clean_search = search_filter.search.filter(|s| !s.trim().is_empty());
 
         let variables = get_media::Variables {
-            season,
-            season_year,
-            status_in: mapped_status,
-            sort: mapped_sort,
+            season: search_filter.season,
+            season_year: search_filter.year,
+            status: search_filter.media_status,
+            sort: search_filter.sort,
             page,
             per_page,
-            type_: type_.to_get_media(),
+            type_,
             search: clean_search,
-            format,
+            format: search_filter.format,
         };
 
         let request_body = GetMedia::build_query(variables);
 
-        let mut json_body = serde_json::to_value(&request_body)?;
-
-        // Empty values brakes request for some reason
-        if let Some(vars) = json_body
-            .get_mut("variables")
-            .and_then(|v| v.as_object_mut())
-        {
-            vars.retain(|_, v| !v.is_null());
-        }
+        let json_body = serde_json::to_value(&request_body)?;
 
         let cache_key = json_body.to_string();
 
@@ -312,7 +311,7 @@ impl AnilistClient {
     ) -> Result<update_entry::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
         let variables = update_entry::Variables {
             media_id: user_media_details.media_id,
-            status: user_media_details.status.to_update_entry_status(),
+            status: user_media_details.status,
             progress: user_media_details.progress,
             progress_volumes: user_media_details.progress_volumes,
             repeat: user_media_details.repeat,
@@ -323,13 +322,7 @@ impl AnilistClient {
         };
         let request_body = UpdateEntry::build_query(variables);
 
-        let mut json_body = serde_json::to_value(&request_body)?;
-        if let Some(vars) = json_body
-            .get_mut("variables")
-            .and_then(|v| v.as_object_mut())
-        {
-            vars.retain(|_, v| !v.is_null());
-        }
+        let json_body = serde_json::to_value(&request_body)?;
         let res = self
             .http_client
             .post(self.api_url)
@@ -354,19 +347,11 @@ impl AnilistClient {
         let variables = toggle_favourite::Variables { anime_id, manga_id };
 
         let request_body = ToggleFavourite::build_query(variables);
-        let mut json_body = serde_json::to_value(&request_body)?;
-
-        if let Some(vars) = json_body
-            .get_mut("variables")
-            .and_then(|v| v.as_object_mut())
-        {
-            vars.retain(|_, v| !v.is_null());
-        }
 
         let res = self
             .http_client
             .post(self.api_url)
-            .json(&json_body)
+            .json(&request_body)
             .send()
             .await?;
 

@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(PartialEq)]
 pub enum ActiveBlock {
     Sidebar,
@@ -55,24 +57,26 @@ pub struct PageInfo {
 
 use ratatui::widgets::TableState;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum UserMediaStatus {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaListStatus {
     Current,
     Planning,
     Completed,
     Repeating,
     Dropped,
     Paused,
+    #[serde(other)]
     Unknown,
 }
-impl UserMediaStatus {
-    pub const ALL: [UserMediaStatus; 6] = [
-        UserMediaStatus::Planning,
-        UserMediaStatus::Current,
-        UserMediaStatus::Completed,
-        UserMediaStatus::Dropped,
-        UserMediaStatus::Paused,
-        UserMediaStatus::Repeating,
+impl MediaListStatus {
+    pub const ALL: [MediaListStatus; 6] = [
+        MediaListStatus::Planning,
+        MediaListStatus::Current,
+        MediaListStatus::Completed,
+        MediaListStatus::Dropped,
+        MediaListStatus::Paused,
+        MediaListStatus::Repeating,
     ];
     pub fn next(&self) -> Self {
         let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
@@ -83,88 +87,44 @@ impl UserMediaStatus {
         let index = Self::ALL.iter().position(|x| x == self).unwrap_or(0);
         Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
     }
-
-    pub fn to_update_entry_status(self) -> update_entry::MediaListStatus {
-        match self {
-            UserMediaStatus::Current => update_entry::MediaListStatus::CURRENT,
-            UserMediaStatus::Planning => update_entry::MediaListStatus::PLANNING,
-            UserMediaStatus::Completed => update_entry::MediaListStatus::COMPLETED,
-            UserMediaStatus::Dropped => update_entry::MediaListStatus::DROPPED,
-            UserMediaStatus::Paused => update_entry::MediaListStatus::PAUSED,
-            UserMediaStatus::Repeating => update_entry::MediaListStatus::REPEATING,
-            UserMediaStatus::Unknown => update_entry::MediaListStatus::Other("".to_string()),
-        }
-    }
 }
 
-impl std::fmt::Display for UserMediaStatus {
+impl std::fmt::Display for MediaListStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            UserMediaStatus::Current => "Current",
-            UserMediaStatus::Planning => "Planning",
-            UserMediaStatus::Completed => "Completed",
-            UserMediaStatus::Dropped => "Dropped",
-            UserMediaStatus::Paused => "Paused",
-            UserMediaStatus::Repeating => "Repeating",
-            UserMediaStatus::Unknown => "Unknown",
+            MediaListStatus::Current => "Current",
+            MediaListStatus::Planning => "Planning",
+            MediaListStatus::Completed => "Completed",
+            MediaListStatus::Dropped => "Dropped",
+            MediaListStatus::Paused => "Paused",
+            MediaListStatus::Repeating => "Repeating",
+            MediaListStatus::Unknown => "Unknown",
         };
         write!(f, "{}", s)
     }
 }
 
-use crate::anilist::{
-    get_media, get_media_details,
-    get_user_media_list::{self},
-    update_entry,
+use crate::{
+    anilist::{
+        get_media, get_media_details,
+        get_user_media_list::{self},
+        update_entry,
+    },
+    utils::Utils,
 };
-impl From<get_user_media_list::MediaListStatus> for UserMediaStatus {
-    fn from(graphql_status: get_user_media_list::MediaListStatus) -> Self {
-        match graphql_status {
-            get_user_media_list::MediaListStatus::CURRENT => UserMediaStatus::Current,
-            get_user_media_list::MediaListStatus::PLANNING => UserMediaStatus::Planning,
-            get_user_media_list::MediaListStatus::COMPLETED => UserMediaStatus::Completed,
-            get_user_media_list::MediaListStatus::DROPPED => UserMediaStatus::Dropped,
-            get_user_media_list::MediaListStatus::PAUSED => UserMediaStatus::Paused,
-            get_user_media_list::MediaListStatus::REPEATING => UserMediaStatus::Repeating,
-            get_user_media_list::MediaListStatus::Other(_) => UserMediaStatus::Unknown,
-        }
-    }
-}
-impl From<get_media_details::MediaListStatus> for UserMediaStatus {
-    fn from(graphql_status: get_media_details::MediaListStatus) -> Self {
-        match graphql_status {
-            get_media_details::MediaListStatus::CURRENT => UserMediaStatus::Current,
-            get_media_details::MediaListStatus::PLANNING => UserMediaStatus::Planning,
-            get_media_details::MediaListStatus::COMPLETED => UserMediaStatus::Completed,
-            get_media_details::MediaListStatus::DROPPED => UserMediaStatus::Dropped,
-            get_media_details::MediaListStatus::PAUSED => UserMediaStatus::Paused,
-            get_media_details::MediaListStatus::REPEATING => UserMediaStatus::Repeating,
-            get_media_details::MediaListStatus::Other(_) => UserMediaStatus::Unknown,
-        }
-    }
-}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaStatus {
     Finished,
     Releasing,
     NotYetReleased,
     Cancelled,
     Hiatus,
+    #[serde(other)]
     Unknown,
 }
 
-impl From<get_media_details::MediaStatus> for MediaStatus {
-    fn from(graphql_status: get_media_details::MediaStatus) -> Self {
-        match graphql_status {
-            get_media_details::MediaStatus::FINISHED => MediaStatus::Finished,
-            get_media_details::MediaStatus::RELEASING => MediaStatus::Releasing,
-            get_media_details::MediaStatus::NOT_YET_RELEASED => MediaStatus::NotYetReleased,
-            get_media_details::MediaStatus::CANCELLED => MediaStatus::Cancelled,
-            get_media_details::MediaStatus::HIATUS => MediaStatus::Hiatus,
-            get_media_details::MediaStatus::Other(_) => MediaStatus::Unknown,
-        }
-    }
-}
 impl std::fmt::Display for MediaStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -183,6 +143,7 @@ pub struct UserMediaList {
     pub page_info: PageInfo,
     pub items: Option<Vec<MediaListItem>>,
 }
+
 impl From<get_media::ResponseData> for UserMediaList {
     fn from(data: get_media::ResponseData) -> Self {
         let mut page_info = PageInfo {
@@ -226,7 +187,7 @@ impl From<get_media::ResponseData> for UserMediaList {
                         }
                     };
 
-                    let type_ = m.type_.map(MediaType::from).unwrap_or(MediaType::Unknown);
+                    let type_ = m.type_.unwrap_or(MediaType::Unknown);
                     let total = m.episodes.or(m.chapters);
                     let next_episode =
                         m.next_airing_episode
@@ -256,6 +217,7 @@ impl From<get_media::ResponseData> for UserMediaList {
         }
     }
 }
+
 impl From<get_user_media_list::ResponseData> for UserMediaList {
     fn from(data: get_user_media_list::ResponseData) -> Self {
         let mut page_info = PageInfo {
@@ -302,8 +264,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                     let type_ = m
                         .media
                         .as_ref()
-                        .and_then(|med| med.type_.clone())
-                        .map(MediaType::from)
+                        .and_then(|med| med.type_)
                         .unwrap_or(MediaType::Unknown);
 
                     if let Some(m) = &m.media {
@@ -318,7 +279,7 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                             time_until_airing: airing.time_until_airing,
                             episode: airing.episode,
                         });
-                    let mapped_status: Option<UserMediaStatus> = m.status.map(|s| s.into());
+                    let mapped_status: Option<MediaListStatus> = m.status;
                     items.push(MediaListItem {
                         id,
                         titles,
@@ -412,7 +373,7 @@ pub struct MediaListItem {
     pub titles: Titles,
     pub progress: Option<i64>,
     pub total: Option<i64>,
-    pub status: Option<UserMediaStatus>,
+    pub status: Option<MediaListStatus>,
     pub average_score: Option<i64>,
     pub next_airing_episode: Option<NextAiringEpisode>,
     pub type_: MediaType,
@@ -492,57 +453,15 @@ pub struct BrowseState {
     pub current_category: BrowseCategory,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaType {
     Anime,
     Manga,
+    #[serde(other)]
     Unknown,
 }
-impl MediaType {
-    pub fn to_get_media_details(self) -> get_media_details::MediaType {
-        match self {
-            MediaType::Anime => get_media_details::MediaType::ANIME,
-            MediaType::Manga => get_media_details::MediaType::MANGA,
-            MediaType::Unknown => get_media_details::MediaType::Other("".to_string()),
-        }
-    }
-}
-impl MediaType {
-    pub fn to_get_media(self) -> get_media::MediaType {
-        match self {
-            MediaType::Anime => get_media::MediaType::ANIME,
-            MediaType::Manga => get_media::MediaType::MANGA,
-            MediaType::Unknown => get_media::MediaType::Other("".to_string()),
-        }
-    }
-}
-impl From<get_media::MediaType> for MediaType {
-    fn from(data: get_media::MediaType) -> Self {
-        match data {
-            get_media::MediaType::ANIME => MediaType::Anime,
-            get_media::MediaType::MANGA => MediaType::Manga,
-            get_media::MediaType::Other(_) => MediaType::Unknown,
-        }
-    }
-}
-impl From<get_user_media_list::MediaType> for MediaType {
-    fn from(data: get_user_media_list::MediaType) -> Self {
-        match data {
-            get_user_media_list::MediaType::ANIME => MediaType::Anime,
-            get_user_media_list::MediaType::MANGA => MediaType::Manga,
-            get_user_media_list::MediaType::Other(_) => MediaType::Unknown,
-        }
-    }
-}
-impl From<get_media_details::MediaType> for MediaType {
-    fn from(data: get_media_details::MediaType) -> Self {
-        match data {
-            get_media_details::MediaType::ANIME => MediaType::Anime,
-            get_media_details::MediaType::MANGA => MediaType::Manga,
-            get_media_details::MediaType::Other(_) => MediaType::Unknown,
-        }
-    }
-}
+
 #[derive(Clone, Copy)]
 pub struct Date {
     pub year: Option<i64>,
@@ -587,7 +506,7 @@ pub struct UserMediaDetails {
     pub started_at: Date,
     pub completed_at: Date,
     pub score: f64,
-    pub status: UserMediaStatus,
+    pub status: MediaListStatus,
     pub notes: String,
 }
 pub struct MediaDetails {
@@ -597,7 +516,7 @@ pub struct MediaDetails {
     pub total: Option<i64>,
     pub volumes: Option<i64>,
     pub cover_image: String,
-    pub season: Season,
+    pub season: MediaSeason,
     pub season_year: i64,
     pub site_url: String,
     pub media_status: MediaStatus,
@@ -650,11 +569,14 @@ impl From<get_media_details::ResponseData> for MediaDetails {
 
         let season = media
             .as_ref()
-            .and_then(|m| m.season.clone())
-            .map(Season::from)
-            .unwrap_or(Season::Unknown);
+            .and_then(|m| m.season)
+            .unwrap_or(MediaSeason::Unknown);
 
-        let type_ = MediaType::from(media.as_ref().map(|m| m.type_.clone()).unwrap().unwrap());
+        let type_ = media
+            .as_ref()
+            .and_then(|m| m.type_)
+            .unwrap_or(MediaType::Unknown);
+
         let season_year = media.as_ref().and_then(|m| m.season_year).unwrap_or(0);
 
         let site_url = media
@@ -686,8 +608,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
 
         let media_status = media
             .as_ref()
-            .and_then(|m| m.status.clone())
-            .map(MediaStatus::from)
+            .and_then(|m| m.status)
             .unwrap_or(MediaStatus::Unknown);
 
         let media_id = media.as_ref().map(|m| m.id).unwrap_or(0);
@@ -698,11 +619,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             let media_id = m.media_id;
             let score = m.score.unwrap_or(0.0);
             let progress = m.progress.unwrap_or(0);
-            let status = m
-                .status
-                .clone()
-                .map(UserMediaStatus::from)
-                .unwrap_or(UserMediaStatus::Unknown);
+            let status = m.status.unwrap_or(MediaListStatus::Unknown);
             let progress_volumes = m.progress_volumes;
             let repeat = m.repeat.unwrap_or(0);
 
@@ -762,54 +679,42 @@ impl From<get_media_details::ResponseData> for MediaDetails {
         }
     }
 }
-pub enum Season {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaSeason {
     Winter,
     Spring,
     Summer,
     Fall,
+    #[serde(other)]
     Unknown,
 }
-impl Season {
-    pub const ALL: [Season; 4] = [Season::Winter, Season::Spring, Season::Summer, Season::Fall];
+impl MediaSeason {
+    pub const ALL: [MediaSeason; 4] = [
+        MediaSeason::Winter,
+        MediaSeason::Spring,
+        MediaSeason::Summer,
+        MediaSeason::Fall,
+    ];
     pub fn next(&self) -> Self {
         match self {
-            Season::Winter => Season::Spring,
-            Season::Spring => Season::Summer,
-            Season::Summer => Season::Fall,
-            Season::Fall => Season::Winter,
-            Season::Unknown => Season::Unknown,
-        }
-    }
-    pub fn to_get_media_media_season(&self) -> get_media::MediaSeason {
-        match self {
-            Season::Winter => get_media::MediaSeason::WINTER,
-            Season::Spring => get_media::MediaSeason::SPRING,
-            Season::Summer => get_media::MediaSeason::SUMMER,
-            Season::Fall => get_media::MediaSeason::FALL,
-            Season::Unknown => get_media::MediaSeason::Other("".to_string()),
-        }
-    }
-}
-impl From<get_media_details::MediaSeason> for Season {
-    fn from(value: get_media_details::MediaSeason) -> Self {
-        match value {
-            get_media_details::MediaSeason::WINTER => Season::Winter,
-            get_media_details::MediaSeason::SPRING => Season::Spring,
-            get_media_details::MediaSeason::SUMMER => Season::Summer,
-            get_media_details::MediaSeason::FALL => Season::Fall,
-            _ => Season::Unknown,
+            MediaSeason::Winter => MediaSeason::Spring,
+            MediaSeason::Spring => MediaSeason::Summer,
+            MediaSeason::Summer => MediaSeason::Fall,
+            MediaSeason::Fall => MediaSeason::Winter,
+            MediaSeason::Unknown => MediaSeason::Unknown,
         }
     }
 }
 
-impl std::fmt::Display for Season {
+impl std::fmt::Display for MediaSeason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Season::Winter => "Winter",
-            Season::Spring => "Spring",
-            Season::Summer => "Summer",
-            Season::Fall => "Fall",
-            Season::Unknown => "Unknown",
+            MediaSeason::Winter => "Winter",
+            MediaSeason::Spring => "Spring",
+            MediaSeason::Summer => "Summer",
+            MediaSeason::Fall => "Fall",
+            MediaSeason::Unknown => "Unknown",
         };
         write!(f, "{}", s)
     }
@@ -832,4 +737,103 @@ pub enum ActivePopup {
     EditMedia,
     Favourite,
     DeleteMedia,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaFormat {
+    Tv,
+    TvShort,
+    Movie,
+    OVA,
+    ONA,
+    Music,
+    Manga,
+    Novel,
+    OneShot,
+    #[serde(other)]
+    Unknown,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaListSort {
+    PopularityDesc,
+    TrendingDesc,
+    ScoreDesc,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaSort {
+    PopularityDesc,
+    TrendingDesc,
+    ScoreDesc,
+    #[serde(other)]
+    Other,
+}
+
+pub struct SearchFilter {
+    pub season: Option<MediaSeason>,
+    pub year: Option<i64>,
+    pub format: Option<MediaFormat>,
+    pub media_status: Option<MediaStatus>,
+    pub search: Option<String>,
+    pub sort: Option<Vec<Option<MediaSort>>>,
+}
+
+impl SearchFilter {
+    pub fn empty() -> Self {
+        Self {
+            season: None,
+            year: None,
+            format: None,
+            media_status: None,
+            search: None,
+            sort: None,
+        }
+    }
+    pub fn default_for(category: BrowseCategory, view: CurrentView) -> Self {
+        match view {
+            CurrentView::BrowseAnime => match category {
+                BrowseCategory::CategoryOne => Self {
+                    sort: Some(vec![Some(MediaSort::TrendingDesc)]),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryTwo => Self {
+                    sort: Some(vec![Some(MediaSort::PopularityDesc)]),
+                    season: Some(Utils::get_season()),
+                    year: Some(Utils::get_year()),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryThree => Self {
+                    sort: Some(vec![Some(MediaSort::PopularityDesc)]),
+                    season: Some(Utils::get_season().next()),
+                    year: Some(Utils::get_year()),
+                    ..Self::empty()
+                },
+                BrowseCategory::Search => Self {
+                    sort: Some(vec![Some(MediaSort::PopularityDesc)]),
+                    ..Self::empty()
+                },
+            },
+            CurrentView::BrowseManga => match category {
+                BrowseCategory::CategoryOne => Self {
+                    sort: Some(vec![Some(MediaSort::TrendingDesc)]),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryTwo => Self {
+                    sort: Some(vec![Some(MediaSort::PopularityDesc)]),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryThree => Self {
+                    sort: Some(vec![Some(MediaSort::ScoreDesc)]),
+                    ..Self::empty()
+                },
+                BrowseCategory::Search => Self { ..Self::empty() },
+            },
+            _ => Self::empty(),
+        }
+    }
 }
