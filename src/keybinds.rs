@@ -106,6 +106,13 @@ pub fn handle_center_events(
                 .position(|l| l == &app.title_language)
                 .unwrap_or(0);
         }
+        KeyCode::Char('f') => {
+            app.open_filter_popup();
+        }
+        KeyCode::Char('r') => {
+            app.reset_current_filter();
+            app.fetch_browse(client, tx);
+        }
         _ => {}
     }
 }
@@ -364,6 +371,113 @@ pub fn handle_edit_media_popup_events(
                         }
                         _ => {}
                     }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn handle_filter_popup_events(
+    app: &mut App,
+    key: KeyEvent,
+    client: AnilistClient,
+    tx: Sender<AppAction>,
+) {
+    use crate::app_helper_structs::{
+        MediaFormat, MediaSeason, MediaSort, MediaStatus, cycle_option,
+    };
+    use ratatui::crossterm::event::KeyCode;
+
+    if app.is_in_edit_state {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => {
+                app.is_in_edit_state = false;
+            }
+            KeyCode::Backspace => match app.filter_popup_index {
+                0 => {
+                    app.filter_search_text.pop();
+                }
+                5 => {
+                    app.filter_year_text.pop();
+                }
+                _ => {}
+            },
+            KeyCode::Char(c) => match app.filter_popup_index {
+                0 => {
+                    app.filter_search_text.push(c);
+                }
+                5 => {
+                    if c.is_ascii_digit() {
+                        app.filter_year_text.push(c);
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    } else {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.active_popup = None;
+            }
+            KeyCode::Char('s') => {
+                app.save_current_filter();
+                app.fetch_browse(client, tx);
+            }
+            KeyCode::Char('r') => {
+                app.reset_current_filter();
+                app.save_current_filter();
+                app.fetch_browse(client, tx);
+            }
+            KeyCode::Enter | KeyCode::Char('i') => {
+                if app.filter_popup_index == 0 || app.filter_popup_index == 5 {
+                    app.is_in_edit_state = true;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') | KeyCode::Tab => {
+                app.filter_popup_index = (app.filter_popup_index + 1) % 6;
+            }
+            KeyCode::Up | KeyCode::Char('k') | KeyCode::BackTab => {
+                app.filter_popup_index = (app.filter_popup_index + 5) % 6;
+            }
+            KeyCode::Left | KeyCode::Char('h') | KeyCode::Right | KeyCode::Char('l') => {
+                let step = if key.code == KeyCode::Right || key.code == KeyCode::Char('l') {
+                    1
+                } else {
+                    -1
+                };
+                let popup_index = app.filter_popup_index;
+
+                let filter = app.get_mut_current_filter();
+
+                match popup_index {
+                    1 => {
+                        let current_sort = filter
+                            .sort
+                            .as_ref()
+                            .and_then(|v| v.first().cloned())
+                            .flatten()
+                            .unwrap_or(MediaSort::PopularityDesc);
+
+                        let next_sort = if step > 0 {
+                            current_sort.next()
+                        } else {
+                            current_sort.previous()
+                        };
+                        filter.sort = Some(vec![Some(next_sort)]);
+                    }
+                    2 => {
+                        filter.format = cycle_option(&filter.format, &MediaFormat::ALL, step);
+                    }
+                    3 => {
+                        filter.season = cycle_option(&filter.season, &MediaSeason::ALL, step);
+                    }
+                    4 => {
+                        filter.media_status =
+                            cycle_option(&filter.media_status, &MediaStatus::ALL, step);
+                    }
+                    _ => {}
                 }
             }
             _ => {}

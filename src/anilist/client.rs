@@ -8,9 +8,7 @@ use crate::anilist::anilist_types::{
     ToggleFavourite, UpdateEntry, delete_media_list_entry, get_basic_viewer, get_media,
     get_media_details, get_user_media_list, toggle_favourite, update_entry,
 };
-pub use crate::app_helper_structs::{
-    MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort, MediaStatus, MediaType,
-};
+pub use crate::app_helper_structs::{MediaListSort, MediaListStatus, MediaType};
 use crate::app_helper_structs::{SearchFilter, UserMediaDetails};
 
 #[derive(Clone)]

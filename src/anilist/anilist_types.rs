@@ -80,6 +80,7 @@ pub struct ToggleFavourite;
     skip_serializing_none
 )]
 pub struct DeleteMediaListEntry;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaType {
@@ -101,6 +102,7 @@ pub enum MediaListStatus {
     #[serde(other)]
     Unknown,
 }
+
 impl MediaListStatus {
     pub const ALL: [MediaListStatus; 6] = [
         MediaListStatus::Planning,
@@ -147,6 +149,7 @@ pub enum MediaStatus {
     #[serde(other)]
     Unknown,
 }
+
 impl MediaStatus {
     pub const ALL: [MediaStatus; 5] = [
         MediaStatus::Finished,
@@ -189,6 +192,7 @@ pub enum MediaSeason {
     #[serde(other)]
     Unknown,
 }
+
 impl MediaSeason {
     pub const ALL: [MediaSeason; 4] = [
         MediaSeason::Winter,
@@ -235,6 +239,7 @@ pub enum MediaFormat {
     #[serde(other)]
     Unknown,
 }
+
 impl MediaFormat {
     pub const ALL: [MediaFormat; 9] = [
         MediaFormat::Tv,
@@ -274,6 +279,7 @@ impl std::fmt::Display for MediaFormat {
         write!(f, "{}", s)
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaListSort {
@@ -281,7 +287,7 @@ pub enum MediaListSort {
     TrendingDesc,
     ScoreDesc,
     #[serde(other)]
-    Other,
+    Unkown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -291,8 +297,9 @@ pub enum MediaSort {
     TrendingDesc,
     ScoreDesc,
     #[serde(other)]
-    Other,
+    Unknown,
 }
+
 impl MediaSort {
     pub const ALL: [MediaSort; 3] = [
         MediaSort::PopularityDesc,
@@ -315,7 +322,7 @@ impl std::fmt::Display for MediaSort {
             MediaSort::PopularityDesc => "Popularity",
             MediaSort::TrendingDesc => "Trending",
             MediaSort::ScoreDesc => "Score",
-            MediaSort::Other => "Other",
+            MediaSort::Unknown => "Other",
         };
         write!(f, "{}", s)
     }

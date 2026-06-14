@@ -11,7 +11,7 @@ use crate::{
 };
 
 use ratatui::widgets::TableState;
-use std::collections::HashMap;
+use std::{clone, collections::HashMap};
 
 #[derive(PartialEq)]
 pub enum ActiveBlock {
@@ -625,7 +625,7 @@ pub enum ActivePopup {
     DeleteMedia,
     SearchFilter,
 }
-
+#[derive(Clone, Debug)]
 pub struct SearchFilter {
     pub season: Option<MediaSeason>,
     pub year: Option<i64>,
@@ -686,6 +686,29 @@ impl SearchFilter {
                 BrowseCategory::Search => Self { ..Self::empty() },
             },
             _ => Self::empty(),
+        }
+    }
+}
+
+pub fn cycle_option<T: Clone + PartialEq>(current: &Option<T>, all: &[T], step: i32) -> Option<T> {
+    if all.is_empty() { return None; }
+    match current {
+        None => {
+            if step > 0 { Some(all[0].clone()) } else { Some(all[all.len() - 1].clone()) }
+        }
+        Some(val) => {
+            let idx = all.iter().position(|x| x == val);
+            match idx {
+                None => None,
+                Some(i) => {
+                    let next_i = i as i32 + step;
+                    if next_i < 0 || next_i >= all.len() as i32 {
+                        None
+                    } else {
+                        Some(all[next_i as usize].clone())
+                    }
+                }
+            }
         }
     }
 }

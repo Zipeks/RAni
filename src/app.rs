@@ -51,6 +51,10 @@ pub struct App {
     pub edit_start_date_text: String,
     pub edit_end_date_text: String,
 
+    pub filter_popup_index: usize,
+    pub filter_search_text: String,
+    pub filter_year_text: String,
+
     pub latest_details_req_id: Arc<AtomicUsize>,
 }
 
@@ -91,6 +95,10 @@ impl App {
             edit_is_manga: false,
             edit_end_date_text: String::new(),
             edit_start_date_text: String::new(),
+
+            filter_popup_index: 0,
+            filter_search_text: String::new(),
+            filter_year_text: String::new(),
 
             latest_details_req_id: Arc::new(AtomicUsize::new(0)),
         }
@@ -300,6 +308,7 @@ impl App {
     }
 
     pub fn fetch_browse(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
+        let filter = self.get_current_filter();
         self.fetch_media(
             client,
             tx,
@@ -322,7 +331,7 @@ impl App {
                     _ => MediaType::Unknown,
                 }
             },
-            SearchFilter::empty(),
+            filter,
         );
     }
 
@@ -738,6 +747,56 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+    pub fn get_current_filter(&mut self) -> SearchFilter {
+        let key = (self.current_view, self.browse_state.current_category);
+        self.browse_state
+            .active_filters
+            .entry(key)
+            .or_insert_with(|| {
+                SearchFilter::default_for(self.browse_state.current_category, self.current_view)
+            })
+            .clone()
+    }
+
+    pub fn get_mut_current_filter(&mut self) -> &mut SearchFilter {
+        let key = (self.current_view, self.browse_state.current_category);
+        self.browse_state
+            .active_filters
+            .entry(key)
+            .or_insert_with(|| {
+                SearchFilter::default_for(self.browse_state.current_category, self.current_view)
+            })
+    }
+
+    pub fn reset_current_filter(&mut self) {
+        let key = (self.current_view, self.browse_state.current_category);
+        let default_filter =
+            SearchFilter::default_for(self.browse_state.current_category, self.current_view);
+        self.browse_state.active_filters.insert(key, default_filter);
+    }
+
+    pub fn open_filter_popup(&mut self) {
+        let filter = self.get_current_filter();
+        self.filter_search_text = filter.search.unwrap_or_default();
+        self.filter_year_text = filter.year.map(|y| y.to_string()).unwrap_or_default();
+        self.filter_popup_index = 0;
+        self.active_popup = Some(ActivePopup::SearchFilter);
+    }
+
+    pub fn save_current_filter(&mut self) {
+        let query = if self.filter_search_text.trim().is_empty() {
+            None
+        } else {
+            Some(self.filter_search_text.clone())
+        };
+        let year = self.filter_year_text.trim().parse::<i64>().ok();
+
+        let filter = self.get_mut_current_filter();
+        filter.search = query;
+        filter.year = year;
+
+        self.active_popup = None;
+    }
 }
 
 pub type AppAction = Box<dyn FnOnce(&mut App) + Send>;
@@ -792,7 +851,9 @@ where
                         client.clone(),
                         tx.clone(),
                     ),
-                    ActivePopup::SearchFilter => todo!(),
+                    ActivePopup::SearchFilter => {
+                        keybinds::handle_filter_popup_events(app, key, client.clone(), tx.clone())
+                    }
                 }
                 continue;
             }
