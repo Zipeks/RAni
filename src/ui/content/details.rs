@@ -1,7 +1,4 @@
-use crate::{
-    app::App,
-    app_helper_structs::{ActiveBlock, MediaType},
-};
+use crate::{anilist::anilist_types::MediaType, app::App, app_helper_structs::ActiveBlock};
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::StatefulImage;
 

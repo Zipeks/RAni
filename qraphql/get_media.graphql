@@ -4,10 +4,10 @@ query GetMedia(
     $type: MediaType!
     $format: MediaFormat
     $sort: [MediaSort]
-    $statusIn: [MediaStatus]
     $search: String
     $page: Int
     $perPage: Int
+    $status: MediaStatus
 ) {
     Page(page: $page, perPage: $perPage) {
         pageInfo {
@@ -23,8 +23,8 @@ query GetMedia(
             type: $type
             format: $format
             sort: $sort
-            status_in: $statusIn
             search: $search
+            status: $status
         ) {
             averageScore
             id

@@ -12,6 +12,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             "Details: l",
             "Next page: n",
             "Prev page: p",
+            "Filter: f",
+            "Reset filters: r",
             "Category: ]/Tab",
         ],
         ActiveBlock::Details => vec![
