@@ -9,7 +9,7 @@ ratatui = "0.30.0"
 reqwest = {version="0.13.3", features = ["blocking", "json"]}
 tokio = {version = "1.52.2", features = ["full"]}
 chrono = "0.4.44"
-tui-big-text = "0.8.4"
+serde = "1.0.228"
 serde_json = "1.0.149"
 ratatui-image = "11.0.2"
 moka = {version="0.12.15", features = ["future"]}
@@ -20,4 +20,3 @@ tracing-appender = "0.2.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 open = "5.3.5"
 axum = "0.8.9"
-serde = "1.0.228"

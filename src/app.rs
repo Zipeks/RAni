@@ -348,7 +348,7 @@ impl App {
             return;
         }
         self.is_loading = true;
-        self.error_message = None;
+        self.unset_error();
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();
@@ -380,10 +380,10 @@ impl App {
                         }
                     }
                     Ok(Err(api_error)) => {
-                        app.error_message = Some(format!("API error: {}", api_error));
+                        app.set_error(format!("API error: {}", api_error));
                     }
                     Err(_) => {
-                        app.error_message = Some("Server timout".to_string());
+                        app.set_error("Server timout".to_string());
                     }
                 }
             });
@@ -409,7 +409,7 @@ impl App {
 
         self.clean_media_details();
         self.is_loading = true;
-        self.error_message = None;
+        self.unset_error();
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();
@@ -448,10 +448,10 @@ impl App {
                         app.media_details = Some(media_details);
                     }
                     Ok(Err(api_error)) => {
-                        app.error_message = Some(format!("API error: {}", api_error));
+                        app.set_error(format!("API error: {}", api_error));
                     }
                     Err(_) => {
-                        app.error_message = Some("Server timeout".to_string());
+                        app.set_error("Server timeout".to_string());
                     }
                 }
             });
@@ -637,7 +637,7 @@ impl App {
         let next_favourite_state = !media_details.is_favourite;
 
         self.is_loading = true;
-        self.error_message = None;
+        self.unset_error();
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
@@ -699,7 +699,7 @@ impl App {
         };
 
         self.is_loading = true;
-        self.error_message = None;
+        self.unset_error();
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();

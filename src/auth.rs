@@ -18,7 +18,7 @@ pub async fn login_with_browser(client_id: &str) -> Result<String, Box<dyn Error
                             let _ = tx.send(Err(err.clone()));
                         }
                         return axum::response::Html(
-                            "<h2>Odmowa dostępu.</h2><p>Możesz zamknąć tę kartę.</p>".to_string(),
+                            "<h2>Denied acces.</h2><p>You can close this window.</p>".to_string(),
                         );
                     }
 
@@ -28,7 +28,6 @@ pub async fn login_with_browser(client_id: &str) -> Result<String, Box<dyn Error
                         <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
                             <h2>Authorization...</h2>
                             <script>
-                                // Wykorzystujemy URLSearchParams do łatwego parsowania
                                 let hash = window.location.hash.substring(1);
                                 let params = new URLSearchParams(hash);
 
