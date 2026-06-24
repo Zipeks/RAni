@@ -106,9 +106,10 @@ pub fn handle_center_events(
                 .position(|l| l == &app.title_language)
                 .unwrap_or(0);
         }
-        KeyCode::Char('f') => {
-            app.open_filter_popup();
-        }
+        KeyCode::Char('f') => match app.current_view {
+            CurrentView::BrowseAnime | CurrentView::BrowseManga => app.open_filter_popup(),
+            CurrentView::UserAnime | CurrentView::UserManga => {}
+        },
         KeyCode::Char('r') => {
             app.reset_current_filter();
             app.fetch_browse(client, tx);
@@ -449,6 +450,7 @@ pub fn handle_filter_popup_events(
                 };
                 let popup_index = app.filter_popup_index;
 
+                let c_view = app.current_view;
                 let filter = app.get_mut_current_filter();
 
                 match popup_index {
@@ -468,7 +470,15 @@ pub fn handle_filter_popup_events(
                         filter.sort = Some(vec![Some(next_sort)]);
                     }
                     2 => {
-                        filter.format = cycle_option(&filter.format, &MediaFormat::ALL, step);
+                        filter.format = match c_view {
+                            CurrentView::BrowseAnime => {
+                                cycle_option(&filter.format, &MediaFormat::ANIME, step)
+                            }
+                            CurrentView::BrowseManga => {
+                                cycle_option(&filter.format, &MediaFormat::MANGA, step)
+                            }
+                            _ => unimplemented!(),
+                        };
                     }
                     3 => {
                         filter.season = cycle_option(&filter.season, &MediaSeason::ALL, step);
