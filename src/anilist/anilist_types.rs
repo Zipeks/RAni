@@ -252,6 +252,20 @@ impl MediaFormat {
         MediaFormat::Novel,
         MediaFormat::OneShot,
     ];
+    pub const ANIME: [MediaFormat; 6] = [
+        MediaFormat::Tv,
+        MediaFormat::TvShort,
+        MediaFormat::Movie,
+        MediaFormat::OVA,
+        MediaFormat::ONA,
+        MediaFormat::Music,
+        // MediaFormat::OneShot,
+    ];
+    pub const MANGA: [MediaFormat; 3] = [
+        MediaFormat::Manga,
+        MediaFormat::Novel,
+        MediaFormat::OneShot,
+    ];
     pub fn next(self) -> Self {
         let index = Self::ALL.iter().position(|x| x == &self).unwrap_or(0);
         Self::ALL[(index + 1) % Self::ALL.len()]
