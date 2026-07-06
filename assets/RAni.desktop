@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.1
+Type=Application
+Name=RAni
+Comment=A feature-rich, keyboard-centric AniList terminal client written in Rust
+Exec=rani
+Icon=rani
+Terminal=true
+Categories=Utility;ConsoleOnly;AudioVideo;
+Keywords=anime;manga;anilist;tui;rust;cli;
+StartupNotify=false

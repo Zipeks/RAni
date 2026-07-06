@@ -23,7 +23,7 @@ mod utils;
 const CLIENT_ID: &str = "40678";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _guard = init_tracing();
+    // let _guard = init_tracing();
 
     let token = auth::load_user_token();
 
