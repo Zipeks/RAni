@@ -16,9 +16,8 @@
 ---
 
 ## 📸 Demo
-<video controls>
-<source src="./assets/demo.mp4">
-</video>
+
+https://github.com/user-attachments/assets/dce97ff0-b236-48ca-b40a-a4f6362089c7
 
 ---
 
