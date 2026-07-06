@@ -16,8 +16,9 @@
 ---
 
 ## 📸 Demo
-
-![RAni Showcase](./assets/demo.mp4)
+<video controls>
+<source src="./assets/demo.mp4">
+</video>
 
 ---
 
