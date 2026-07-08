@@ -3,28 +3,6 @@
 version = 4
 
 [[package]]
-name = "RAni"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "graphql_client",
- "image",
- "keyring",
- "moka",
- "open",
- "ratatui",
- "ratatui-image",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2572,6 +2550,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f703f4665700daf5512dcca5f43afa6af89f09db47fb56be587f80636bda2d41"
 dependencies = [
  "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rani"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "graphql_client",
+ "image",
+ "keyring",
+ "moka",
+ "open",
+ "ratatui",
+ "ratatui-image",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]

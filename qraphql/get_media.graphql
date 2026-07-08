@@ -41,6 +41,8 @@ query GetMedia(
                 episode
                 timeUntilAiring
             }
+            isFavourite
+            format
         }
     }
 }

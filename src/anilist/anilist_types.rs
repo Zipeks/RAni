@@ -37,7 +37,7 @@ pub struct GetBasicViewer;
         "MediaListSort",
         "MediaListStatus",
         "MediaFormat",
-        "MediaSeason"
+        // "MediaSeason"
     ),
     skip_serializing_none
 )]
@@ -230,8 +230,8 @@ pub enum MediaFormat {
     Tv,
     TvShort,
     Movie,
-    OVA,
-    ONA,
+    Ova,
+    Ona,
     Music,
     Manga,
     Novel,
@@ -245,8 +245,8 @@ impl MediaFormat {
         MediaFormat::Tv,
         MediaFormat::TvShort,
         MediaFormat::Movie,
-        MediaFormat::OVA,
-        MediaFormat::ONA,
+        MediaFormat::Ova,
+        MediaFormat::Ona,
         MediaFormat::Music,
         MediaFormat::Manga,
         MediaFormat::Novel,
@@ -256,16 +256,13 @@ impl MediaFormat {
         MediaFormat::Tv,
         MediaFormat::TvShort,
         MediaFormat::Movie,
-        MediaFormat::OVA,
-        MediaFormat::ONA,
+        MediaFormat::Ova,
+        MediaFormat::Ona,
         MediaFormat::Music,
         // MediaFormat::OneShot,
     ];
-    pub const MANGA: [MediaFormat; 3] = [
-        MediaFormat::Manga,
-        MediaFormat::Novel,
-        MediaFormat::OneShot,
-    ];
+    pub const MANGA: [MediaFormat; 3] =
+        [MediaFormat::Manga, MediaFormat::Novel, MediaFormat::OneShot];
     pub fn next(self) -> Self {
         let index = Self::ALL.iter().position(|x| x == &self).unwrap_or(0);
         Self::ALL[(index + 1) % Self::ALL.len()]
@@ -282,8 +279,8 @@ impl std::fmt::Display for MediaFormat {
             MediaFormat::Tv => "TV",
             MediaFormat::TvShort => "TV Short",
             MediaFormat::Movie => "Movie",
-            MediaFormat::OVA => "OVA",
-            MediaFormat::ONA => "ONA",
+            MediaFormat::Ova => "OVA",
+            MediaFormat::Ona => "ONA",
             MediaFormat::Music => "Music",
             MediaFormat::Manga => "Manga",
             MediaFormat::Novel => "Light Novel",
@@ -297,11 +294,39 @@ impl std::fmt::Display for MediaFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaListSort {
-    PopularityDesc,
-    TrendingDesc,
+    MediaPopularityDesc,
     ScoreDesc,
+    UpdatedTimeDesc,
     #[serde(other)]
-    Unkown,
+    Unknown,
+}
+
+impl MediaListSort {
+    pub const ALL: [MediaListSort; 3] = [
+        MediaListSort::MediaPopularityDesc,
+        MediaListSort::ScoreDesc,
+        MediaListSort::UpdatedTimeDesc,
+    ];
+    pub fn next(self) -> Self {
+        let index = Self::ALL.iter().position(|x| x == &self).unwrap_or(0);
+        Self::ALL[(index + 1) % Self::ALL.len()]
+    }
+    pub fn previous(self) -> Self {
+        let index = Self::ALL.iter().position(|x| x == &self).unwrap_or(0);
+        Self::ALL[(index + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
+impl std::fmt::Display for MediaListSort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            MediaListSort::MediaPopularityDesc => "Popularity",
+            MediaListSort::ScoreDesc => "Score",
+            MediaListSort::UpdatedTimeDesc => "Updated Time",
+            MediaListSort::Unknown => "Other",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -310,6 +335,7 @@ pub enum MediaSort {
     PopularityDesc,
     TrendingDesc,
     ScoreDesc,
+    UpdatedTimeDesc,
     #[serde(other)]
     Unknown,
 }
@@ -336,6 +362,7 @@ impl std::fmt::Display for MediaSort {
             MediaSort::PopularityDesc => "Popularity",
             MediaSort::TrendingDesc => "Trending",
             MediaSort::ScoreDesc => "Score",
+            MediaSort::UpdatedTimeDesc => "Updated Time",
             MediaSort::Unknown => "Other",
         };
         write!(f, "{}", s)

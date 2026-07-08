@@ -30,6 +30,8 @@ query GetUserMediaList(
                     episode
                     timeUntilAiring
                 }
+                isFavourite
+                format
             }
             progress
             status

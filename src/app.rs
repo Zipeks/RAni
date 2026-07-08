@@ -19,6 +19,7 @@ use crate::anilist::client::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
     MediaListItem, SearchFilter, TitleLanguage, User, UserMediaDetails, UserMediaList,
+    UserSearchFilter
 };
 
 pub struct App {
@@ -75,6 +76,7 @@ impl App {
 
             browse_state: BrowseState {
                 active_filters: HashMap::new(),
+                active_user_filters: HashMap::new(),
                 loaded_view: CurrentView::UserAnime,
                 media: None,
                 state: TableState::default(),
@@ -171,19 +173,11 @@ impl App {
     }
 
     pub fn fetch_user_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
+        let filter = self.get_current_user_filter();
         self.fetch_user_media_list(
             client,
             tx,
-            match self.browse_state.current_category {
-                BrowseCategory::CategoryOne => Some(MediaListStatus::Current),
-                BrowseCategory::CategoryTwo => Some(MediaListStatus::Completed),
-                BrowseCategory::CategoryThree => Some(MediaListStatus::Planning),
-                _ => None,
-            },
-            match self.browse_state.current_category {
-                BrowseCategory::CategoryTwo => Some(vec![Some(MediaListSort::ScoreDesc)]),
-                _ => None,
-            },
+            filter,
             Some(
                 self.browse_state
                     .media
@@ -208,8 +202,7 @@ impl App {
         &mut self,
         client: AnilistClient,
         tx: Sender<AppAction>,
-        status: Option<MediaListStatus>,
-        sort: Option<Vec<Option<MediaListSort>>>,
+        filter: UserSearchFilter,
         page: Option<i64>,
         per_page: Option<i64>,
         type_: MediaType,
@@ -223,12 +216,12 @@ impl App {
 
         let client_clone = client.clone();
         let tx_clone = tx.clone();
-        let status_for_sort = status;
+        // let status_for_sort = status;
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
             let fetch_future =
-                client_clone.get_user_media_list(user_id, status, sort, page, per_page, type_);
+                client_clone.get_user_media_list(user_id, filter, page, per_page, type_);
 
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -236,26 +229,26 @@ impl App {
                 match timeout_result {
                     Ok(Ok(data)) => {
                         let mut clean_list = UserMediaList::from(data);
-                        if let Some(MediaListStatus::Current) = status_for_sort
-                            && let Some(ref mut items) = clean_list.items
-                        {
-                            items.sort_by(|a, b| {
-                                match (&a.next_airing_episode, &b.next_airing_episode) {
-                                    (Some(ep_a), Some(ep_b)) => {
-                                        ep_a.time_until_airing.cmp(&ep_b.time_until_airing)
-                                    }
-
-                                    (Some(_), None) => std::cmp::Ordering::Less,
-
-                                    (None, Some(_)) => std::cmp::Ordering::Greater,
-
-                                    (None, None) => a
-                                        .titles
-                                        .get_title(&TitleLanguage::UserPreferred)
-                                        .cmp(b.titles.get_title(&TitleLanguage::UserPreferred)),
-                                }
-                            });
-                        };
+                        // if let Some(MediaListStatus::Current) = status_for_sort
+                        //     && let Some(ref mut items) = clean_list.items
+                        // {
+                        //     items.sort_by(|a, b| {
+                        //         match (&a.next_airing_episode, &b.next_airing_episode) {
+                        //             (Some(ep_a), Some(ep_b)) => {
+                        //                 ep_a.time_until_airing.cmp(&ep_b.time_until_airing)
+                        //             }
+                        //
+                        //             (Some(_), None) => std::cmp::Ordering::Less,
+                        //
+                        //             (None, Some(_)) => std::cmp::Ordering::Greater,
+                        //
+                        //             (None, None) => a
+                        //                 .titles
+                        //                 .get_title(&TitleLanguage::UserPreferred)
+                        //                 .cmp(b.titles.get_title(&TitleLanguage::UserPreferred)),
+                        //         }
+                        //     });
+                        // };
                         let old_selected = app.browse_state.state.selected();
                         app.browse_state.media = Some(clean_list);
 
@@ -794,7 +787,37 @@ impl App {
         let filter = self.get_mut_current_filter();
         filter.search = query;
         filter.year = year;
+    }
 
+    pub fn get_current_user_filter(&mut self) -> UserSearchFilter {
+        let key = (self.current_view, self.browse_state.current_category);
+        self.browse_state
+            .active_user_filters
+            .entry(key)
+            .or_insert_with(|| {
+                UserSearchFilter::default_for(self.browse_state.current_category, self.current_view)
+            })
+            .clone()
+    }
+
+    pub fn get_mut_current_user_filter(&mut self) -> &mut UserSearchFilter {
+        let key = (self.current_view, self.browse_state.current_category);
+        self.browse_state
+            .active_user_filters
+            .entry(key)
+            .or_insert_with(|| {
+                UserSearchFilter::default_for(self.browse_state.current_category, self.current_view)
+            })
+    }
+
+    pub fn reset_current_user_filter(&mut self) {
+        let key = (self.current_view, self.browse_state.current_category);
+        let default_filter =
+            SearchFilter::default_for(self.browse_state.current_category, self.current_view);
+        self.browse_state.active_filters.insert(key, default_filter);
+    }
+
+    pub fn save_current_user_filter(&mut self) {
         self.active_popup = None;
     }
 }

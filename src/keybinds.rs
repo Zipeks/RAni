@@ -107,8 +107,10 @@ pub fn handle_center_events(
                 .unwrap_or(0);
         }
         KeyCode::Char('f') => match app.current_view {
-            CurrentView::BrowseAnime | CurrentView::BrowseManga => app.open_filter_popup(),
-            CurrentView::UserAnime | CurrentView::UserManga => {}
+            CurrentView::BrowseAnime
+            | CurrentView::UserAnime
+            | CurrentView::BrowseManga
+            | CurrentView::UserManga => app.open_filter_popup(),
         },
         KeyCode::Char('r') => {
             app.reset_current_filter();
@@ -386,35 +388,49 @@ pub fn handle_filter_popup_events(
     tx: Sender<AppAction>,
 ) {
     use crate::app_helper_structs::{
-        MediaFormat, MediaSeason, MediaSort, MediaStatus, cycle_option,
+        CurrentView, MediaFormat, MediaListSort, MediaListStatus, MediaSeason, MediaSort,
+        MediaStatus, cycle_option,
     };
-    use ratatui::crossterm::event::KeyCode;
+
+    let is_user_view = matches!(
+        app.current_view,
+        CurrentView::UserAnime | CurrentView::UserManga
+    );
+    let max_fields = if is_user_view { 4 } else { 6 };
 
     if app.is_in_edit_state {
         match key.code {
             KeyCode::Esc | KeyCode::Enter => {
                 app.is_in_edit_state = false;
             }
-            KeyCode::Backspace => match app.filter_popup_index {
-                0 => {
-                    app.filter_search_text.pop();
-                }
-                5 => {
-                    app.filter_year_text.pop();
-                }
-                _ => {}
-            },
-            KeyCode::Char(c) => match app.filter_popup_index {
-                0 => {
-                    app.filter_search_text.push(c);
-                }
-                5 => {
-                    if c.is_ascii_digit() {
-                        app.filter_year_text.push(c);
+            KeyCode::Backspace => {
+                if !is_user_view {
+                    match app.filter_popup_index {
+                        0 => {
+                            app.filter_search_text.pop();
+                        }
+                        5 => {
+                            app.filter_year_text.pop();
+                        }
+                        _ => {}
                     }
                 }
-                _ => {}
-            },
+            }
+            KeyCode::Char(c) => {
+                if !is_user_view {
+                    match app.filter_popup_index {
+                        0 => {
+                            app.filter_search_text.push(c);
+                        }
+                        5 => {
+                            if c.is_ascii_digit() {
+                                app.filter_year_text.push(c);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
             _ => {}
         }
     } else {
@@ -423,24 +439,37 @@ pub fn handle_filter_popup_events(
                 app.active_popup = None;
             }
             KeyCode::Char('s') => {
-                app.save_current_filter();
-                app.fetch_browse(client, tx);
+                if is_user_view {
+                    app.save_current_user_filter();
+                    app.fetch_user_media(client, tx);
+                } else {
+                    app.save_current_filter();
+                    app.fetch_browse(client, tx);
+                }
+                app.active_popup = None;
             }
             KeyCode::Char('r') => {
-                app.reset_current_filter();
-                app.save_current_filter();
-                app.fetch_browse(client, tx);
+                if is_user_view {
+                    app.reset_current_user_filter();
+                    app.save_current_user_filter();
+                    app.fetch_user_media(client, tx);
+                } else {
+                    app.reset_current_filter();
+                    app.save_current_filter();
+                    app.fetch_browse(client, tx);
+                }
+                app.active_popup = None;
             }
             KeyCode::Enter | KeyCode::Char('i') => {
-                if app.filter_popup_index == 0 || app.filter_popup_index == 5 {
+                if !is_user_view && (app.filter_popup_index == 0 || app.filter_popup_index == 5) {
                     app.is_in_edit_state = true;
                 }
             }
             KeyCode::Down | KeyCode::Char('j') | KeyCode::Tab => {
-                app.filter_popup_index = (app.filter_popup_index + 1) % 6;
+                app.filter_popup_index = (app.filter_popup_index + 1) % max_fields;
             }
             KeyCode::Up | KeyCode::Char('k') | KeyCode::BackTab => {
-                app.filter_popup_index = (app.filter_popup_index + 5) % 6;
+                app.filter_popup_index = (app.filter_popup_index + max_fields - 1) % max_fields;
             }
             KeyCode::Left | KeyCode::Char('h') | KeyCode::Right | KeyCode::Char('l') => {
                 let step = if key.code == KeyCode::Right || key.code == KeyCode::Char('l') {
@@ -450,44 +479,66 @@ pub fn handle_filter_popup_events(
                 };
                 let popup_index = app.filter_popup_index;
 
-                let c_view = app.current_view;
-                let filter = app.get_mut_current_filter();
+                if is_user_view {
+                    let filter = app.get_mut_current_user_filter();
 
-                match popup_index {
-                    1 => {
-                        let current_sort = filter
-                            .sort
-                            .as_ref()
-                            .and_then(|v| v.first().cloned())
-                            .flatten()
-                            .unwrap_or(MediaSort::PopularityDesc);
+                    match popup_index {
+                        0 => {
+                            let current_sort = filter
+                                .sort
+                                .as_ref()
+                                .and_then(|v| v.first().cloned())
+                                .unwrap_or(MediaListSort::UpdatedTimeDesc);
 
-                        let next_sort = if step > 0 {
-                            current_sort.next()
-                        } else {
-                            current_sort.previous()
-                        };
-                        filter.sort = Some(vec![Some(next_sort)]);
+                            let next_sort = if step > 0 {
+                                current_sort.next()
+                            } else {
+                                current_sort.previous()
+                            };
+                            filter.sort = Some(vec![next_sort]);
+                        }
+                        1 => {
+                            filter.format = cycle_option(&filter.format, &MediaFormat::ALL, step);
+                        }
+                        2 => {
+                            filter.status =
+                                cycle_option(&filter.status, &MediaListStatus::ALL, step);
+                        }
+                        3 => {
+                            filter.favourites_only = !filter.favourites_only;
+                        }
+                        _ => {}
                     }
-                    2 => {
-                        filter.format = match c_view {
-                            CurrentView::BrowseAnime => {
-                                cycle_option(&filter.format, &MediaFormat::ANIME, step)
-                            }
-                            CurrentView::BrowseManga => {
-                                cycle_option(&filter.format, &MediaFormat::MANGA, step)
-                            }
-                            _ => unimplemented!(),
-                        };
+                } else {
+                    let filter = app.get_mut_current_filter();
+
+                    match popup_index {
+                        1 => {
+                            let current_sort = filter
+                                .sort
+                                .as_ref()
+                                .and_then(|v| v.first().cloned())
+                                .flatten()
+                                .unwrap_or(MediaSort::PopularityDesc);
+
+                            let next_sort = if step > 0 {
+                                current_sort.next()
+                            } else {
+                                current_sort.previous()
+                            };
+                            filter.sort = Some(vec![Some(next_sort)]);
+                        }
+                        2 => {
+                            filter.format = cycle_option(&filter.format, &MediaFormat::ALL, step);
+                        }
+                        3 => {
+                            filter.season = cycle_option(&filter.season, &MediaSeason::ALL, step);
+                        }
+                        4 => {
+                            filter.status = cycle_option(&filter.status, &MediaStatus::ALL, step);
+                        }
+                        _ => {}
                     }
-                    3 => {
-                        filter.season = cycle_option(&filter.season, &MediaSeason::ALL, step);
-                    }
-                    4 => {
-                        filter.media_status =
-                            cycle_option(&filter.media_status, &MediaStatus::ALL, step);
-                    }
-                    _ => {}
                 }
             }
             _ => {}

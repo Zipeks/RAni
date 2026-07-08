@@ -3,12 +3,12 @@ use moka::future::Cache;
 use reqwest::{Client, header};
 use std::{error::Error, time::Duration};
 
-use crate::anilist::anilist_types::{
+use crate::{anilist::anilist_types::{
     DeleteMediaListEntry, GetBasicViewer, GetMedia, GetMediaDetails, GetUserMediaList,
     ToggleFavourite, UpdateEntry, delete_media_list_entry, get_basic_viewer, get_media,
     get_media_details, get_user_media_list, toggle_favourite, update_entry,
-};
-pub use crate::app_helper_structs::{MediaListSort, MediaListStatus, MediaType};
+}, app_helper_structs::UserSearchFilter};
+pub use crate::app_helper_structs::{MediaType};
 use crate::app_helper_structs::{SearchFilter, UserMediaDetails};
 
 #[derive(Clone)]
@@ -71,16 +71,16 @@ impl AnilistClient {
     pub async fn get_user_media_list(
         &self,
         user_id: i64,
-        status: Option<MediaListStatus>,
-        sort: Option<Vec<Option<MediaListSort>>>,
+        filter: UserSearchFilter,
         page: Option<i64>,
         per_page: Option<i64>,
         type_: MediaType,
     ) -> Result<get_user_media_list::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+        let mapped_sort = filter.sort.map(|s| s.into_iter().map(Some).collect());
         let variables = get_user_media_list::Variables {
             user_id,
-            status,
-            sort,
+            status: filter.status,
+            sort: mapped_sort,
             page,
             per_page,
             type_,
@@ -137,7 +137,7 @@ impl AnilistClient {
         let variables = get_media::Variables {
             season: search_filter.season,
             season_year: search_filter.year,
-            status: search_filter.media_status,
+            status: search_filter.status,
             sort: search_filter.sort,
             page,
             per_page,

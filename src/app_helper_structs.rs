@@ -11,7 +11,7 @@ use crate::{
 };
 
 use ratatui::widgets::TableState;
-use std::{clone, collections::HashMap};
+use std::collections::HashMap;
 
 #[derive(PartialEq)]
 pub enum ActiveBlock {
@@ -126,6 +126,9 @@ impl From<get_media::ResponseData> for UserMediaList {
                                 episode: airing.episode,
                             });
                     let average_score = m.average_score;
+                    let is_favourite = m.is_favourite;
+                    let format = m.format;
+
                     items.push(MediaListItem {
                         id,
                         titles,
@@ -135,6 +138,8 @@ impl From<get_media::ResponseData> for UserMediaList {
                         average_score,
                         status: None,
                         next_airing_episode: next_episode,
+                        format,
+                        is_favourite,
                     });
                 }
             }
@@ -209,6 +214,13 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                             episode: airing.episode,
                         });
                     let mapped_status: Option<MediaListStatus> = m.status;
+                    let format = m.media.as_ref().and_then(|m| m.format);
+                    let is_favourite = m
+                        .media
+                        .as_ref()
+                        .map(|med| med.is_favourite)
+                        .unwrap_or(false);
+
                     items.push(MediaListItem {
                         id,
                         titles,
@@ -218,6 +230,8 @@ impl From<get_user_media_list::ResponseData> for UserMediaList {
                         average_score: None,
                         status: mapped_status,
                         next_airing_episode: next_episode,
+                        format,
+                        is_favourite,
                     });
                 }
             }
@@ -308,6 +322,8 @@ pub struct MediaListItem {
     pub average_score: Option<i64>,
     pub next_airing_episode: Option<NextAiringEpisode>,
     pub type_: MediaType,
+    pub is_favourite: bool,
+    pub format: Option<MediaFormat>,
 }
 
 #[derive(PartialEq, Clone, Copy, Eq, Hash)]
@@ -385,6 +401,7 @@ pub struct BrowseState {
     pub state: TableState,
     pub current_category: BrowseCategory,
     pub active_filters: HashMap<(CurrentView, BrowseCategory), SearchFilter>,
+    pub active_user_filters: HashMap<(CurrentView, BrowseCategory), UserSearchFilter>,
 }
 
 #[derive(Clone, Copy)]
@@ -434,6 +451,7 @@ pub struct UserMediaDetails {
     pub status: MediaListStatus,
     pub notes: String,
 }
+
 pub struct MediaDetails {
     pub titles: Titles,
     pub description: String,
@@ -452,6 +470,7 @@ pub struct MediaDetails {
     pub is_favourite: bool,
     pub media_id: i64,
 }
+
 impl From<get_media_details::ResponseData> for MediaDetails {
     fn from(data: get_media_details::ResponseData) -> Self {
         let media = data.media;
@@ -625,12 +644,13 @@ pub enum ActivePopup {
     DeleteMedia,
     SearchFilter,
 }
+
 #[derive(Clone, Debug)]
 pub struct SearchFilter {
     pub season: Option<MediaSeason>,
     pub year: Option<i64>,
     pub format: Option<MediaFormat>,
-    pub media_status: Option<MediaStatus>,
+    pub status: Option<MediaStatus>,
     pub search: Option<String>,
     pub sort: Option<Vec<Option<MediaSort>>>,
 }
@@ -641,7 +661,7 @@ impl SearchFilter {
             season: None,
             year: None,
             format: None,
-            media_status: None,
+            status: None,
             search: None,
             sort: None,
         }
@@ -690,11 +710,72 @@ impl SearchFilter {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct UserSearchFilter {
+    pub sort: Option<Vec<MediaListSort>>,
+    pub format: Option<MediaFormat>,
+    pub status: Option<MediaListStatus>,
+    pub favourites_only: bool,
+}
+
+impl UserSearchFilter {
+    pub fn empty() -> Self {
+        Self {
+            format: None,
+            status: None,
+            sort: None,
+            favourites_only: false,
+        }
+    }
+    pub fn default_for(category: BrowseCategory, view: CurrentView) -> Self {
+        match view {
+            CurrentView::UserAnime => match category {
+                BrowseCategory::CategoryOne => Self {
+                    status: Some(MediaListStatus::Current),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryTwo => Self {
+                    status: Some(MediaListStatus::Completed),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryThree => Self {
+                    status: Some(MediaListStatus::Planning),
+                    ..Self::empty()
+                },
+                BrowseCategory::Search => Self { ..Self::empty() },
+            },
+            CurrentView::UserManga => match category {
+                BrowseCategory::CategoryOne => Self {
+                    status: Some(MediaListStatus::Current),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryTwo => Self {
+                    status: Some(MediaListStatus::Completed),
+                    ..Self::empty()
+                },
+                BrowseCategory::CategoryThree => Self {
+                    status: Some(MediaListStatus::Planning),
+                    ..Self::empty()
+                },
+                BrowseCategory::Search => Self { ..Self::empty() },
+            },
+            _ => Self::empty(),
+        }
+    }
+}
+
 pub fn cycle_option<T: Clone + PartialEq>(current: &Option<T>, all: &[T], step: i32) -> Option<T> {
-    if all.is_empty() { return None; }
+    if all.is_empty() {
+        return None;
+    }
     match current {
         None => {
-            if step > 0 { Some(all[0].clone()) } else { Some(all[all.len() - 1].clone()) }
+            if step > 0 {
+                Some(all[0].clone())
+            } else {
+                Some(all[all.len() - 1].clone())
+            }
         }
         Some(val) => {
             let idx = all.iter().position(|x| x == val);
