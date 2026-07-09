@@ -9,7 +9,7 @@
 
 **A feature-rich, keyboard-centric, and asynchronous Terminal User Interface for [AniList.co](https://anilist.co), created with Rust 🦀.**
 
-[Features](#--features) • [Installation](#--installation) • [Keybindings](#--keybindings) • [Architecture](#--architecture)
+[Features](#features) • [Installation](#installation) • [Keybindings](#keybindings) • [Tech Stack](#tech-stack)
 
 </div>
 
@@ -21,7 +21,8 @@ https://github.com/user-attachments/assets/dce97ff0-b236-48ca-b40a-a4f6362089c7
 
 ---
 
-## ✨ Features
+## ✨ Features  <a id="features"></a>
+
 
 - ⚡ **Blazing Fast & Asynchronous:** Built on top of **Tokio** and **Ratatui**. Non-blocking I/O ensures your UI never freezes, running at a buttery-smooth 60 FPS.
 - ⌨️ **Vim-Centric Navigation:** Designed for power users. Effortlessly navigate lists, switch tabs, and edit entries without ever touching your mouse.
@@ -31,11 +32,36 @@ https://github.com/user-attachments/assets/dce97ff0-b236-48ca-b40a-a4f6362089c7
 - 📋 **Full List Management:**
   - Update watch/read progress and episode counts on the fly.
   - Modify custom scores and repeat/rewatch counters.
-  - Instantaneous local-cache optimistic UI updates (e.g., instant ❤️ favorite toggling).
   - Add and delete entries directly from your TUI.
 
+## 🚀 Installation  <a id="installation"></a>
 
-## 🎮 Keybindings
+RAni is built with Rust and requires a few system libraries to compile properly, mainly **Chafa** (for rendering high-quality terminal graphics) and **D-Bus** (for secure token storage).
+
+### 1. Install System Dependencies
+
+Before compiling, ensure you have the Rust toolchain, a C compiler, `pkg-config`, and the required development libraries installed.
+
+**Arch Linux / Manjaro / CachyOS:**
+
+```bash
+sudo pacman -S rust base-devel pkgconf chafa dbus
+```
+
+### 2. Install the Application
+
+####  From Source (Cargo)
+You can build and install the binary directly from GitHub using Cargo. The executable will be placed in your `~/.cargo/bin` directory.
+
+```bash
+git clone https://github.com/Zipeks/RAni.git
+cd RAni
+cargo install --path .
+```
+
+*(Make sure `~/.cargo/bin` is added to your system's `$PATH`).*
+
+## 🎮 Keybindings <a id="keybindings"></a>
 
 RAni utilizes modal editing (similar to Neovim), splitting interactions into **Normal Mode** (navigation & quick toggles) and **Edit Mode** (text & numeric typing).
 
@@ -60,8 +86,9 @@ RAni utilizes modal editing (similar to Neovim), splitting interactions into **N
 | Key | Action |
 | :--- | :--- |
 | `e` | **Open Edit Menu** (Modify status, progress, score, dates) |
-| `f` | **Toggle Favorite** ❤️ (Optimistic instant update) |
-| `d` | **Delete Entry** from your AniList |
+| `f` | **Toggle Favorite** ❤️  |
+| `d` | **Delete Entry** from your AniList  |
+| `o` | Open selected media anilist page |
 
 ### 🛠️ Edit / Filter Popups (Vim Workflow)
 
@@ -80,7 +107,7 @@ When an edit or filter popup is active:
 
 ---
 
-## 🏗️ Tech Stack
+## 🏗️ Tech Stack <a id="tech-stack"></a>
 
 - **[Ratatui](https://github.com/ratatui-org/ratatui)** — For the terminal UI rendering.
 - **[Tokio](https://tokio.rs/)** — Asynchronous runtime for non-blocking network requests.
