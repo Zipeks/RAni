@@ -732,6 +732,7 @@ impl UserSearchFilter {
             CurrentView::UserAnime => match category {
                 BrowseCategory::CategoryOne => Self {
                     status: Some(MediaListStatus::Current),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
                 BrowseCategory::CategoryTwo => Self {
@@ -741,6 +742,7 @@ impl UserSearchFilter {
                 },
                 BrowseCategory::CategoryThree => Self {
                     status: Some(MediaListStatus::Planning),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
                 BrowseCategory::Search => Self { ..Self::empty() },
@@ -748,17 +750,22 @@ impl UserSearchFilter {
             CurrentView::UserManga => match category {
                 BrowseCategory::CategoryOne => Self {
                     status: Some(MediaListStatus::Current),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
                 BrowseCategory::CategoryTwo => Self {
                     status: Some(MediaListStatus::Completed),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
                 BrowseCategory::CategoryThree => Self {
                     status: Some(MediaListStatus::Planning),
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
-                BrowseCategory::Search => Self { ..Self::empty() },
+                BrowseCategory::Search => Self { 
+                    sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
+                    ..Self::empty() },
             },
             _ => Self::empty(),
         }

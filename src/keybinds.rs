@@ -10,6 +10,7 @@ use crate::{
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEvent;
 use std::sync::mpsc::Sender;
+use tracing::info;
 
 pub fn handle_sidebar_events(
     app: &mut App,
@@ -113,8 +114,18 @@ pub fn handle_center_events(
             | CurrentView::UserManga => app.open_filter_popup(),
         },
         KeyCode::Char('r') => {
-            app.reset_current_filter();
-            app.fetch_browse(client, tx);
+            let is_user_view = matches!(
+                app.current_view,
+                CurrentView::UserAnime | CurrentView::UserManga
+            );
+
+            if is_user_view {
+                app.reset_current_user_filter();
+                app.fetch_user_media(client, tx);
+            } else {
+                app.reset_current_filter();
+                app.fetch_browse(client, tx);
+            }
         }
         _ => {}
     }

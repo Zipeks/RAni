@@ -1,6 +1,7 @@
 use graphql_client::{GraphQLQuery, Response};
 use moka::future::Cache;
 use reqwest::{Client, header};
+use tracing::info;
 use std::{error::Error, time::Duration};
 
 use crate::{anilist::anilist_types::{
@@ -76,7 +77,9 @@ impl AnilistClient {
         per_page: Option<i64>,
         type_: MediaType,
     ) -> Result<get_user_media_list::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
+
         let mapped_sort = filter.sort.map(|s| s.into_iter().map(Some).collect());
+
         let variables = get_user_media_list::Variables {
             user_id,
             status: filter.status,

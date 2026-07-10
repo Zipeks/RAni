@@ -7,6 +7,7 @@ use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{EnterAlternateScreen, enable_raw_mode};
 use ratatui::crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
+use tracing::info;
 use std::error::Error;
 use std::io;
 use std::ops::Deref;
@@ -23,8 +24,9 @@ mod utils;
 const CLIENT_ID: &str = "40678";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    // let _guard = init_tracing();
+    let _guard = init_tracing();
 
+    info!("aaaa");
     let token = auth::load_user_token();
 
     let anilist_token = match token {

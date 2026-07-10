@@ -19,7 +19,7 @@ use crate::anilist::client::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
     MediaListItem, SearchFilter, TitleLanguage, User, UserMediaDetails, UserMediaList,
-    UserSearchFilter
+    UserSearchFilter,
 };
 
 pub struct App {
@@ -813,8 +813,10 @@ impl App {
     pub fn reset_current_user_filter(&mut self) {
         let key = (self.current_view, self.browse_state.current_category);
         let default_filter =
-            SearchFilter::default_for(self.browse_state.current_category, self.current_view);
-        self.browse_state.active_filters.insert(key, default_filter);
+            UserSearchFilter::default_for(self.browse_state.current_category, self.current_view);
+        self.browse_state
+            .active_user_filters
+            .insert(key, default_filter);
     }
 
     pub fn save_current_user_filter(&mut self) {
