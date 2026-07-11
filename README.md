@@ -61,6 +61,15 @@ cargo install --path .
 
 *(Make sure `~/.cargo/bin` is added to your system's `$PATH`).*
 
+### Add desktop entry (optional)
+If you want to run RAni directly from your app launcher, run this commands:
+```bash
+cd assets
+RAni.desktop ~/.local/share/applications
+mkdir -p \~/.local/share/icons/hicolor/scalable/apps/
+cp rani.svg \~/.local/share/icons/hicolor/scalable/apps
+```
+
 ## 🎮 Keybindings <a id="keybindings"></a>
 
 RAni utilizes modal editing (similar to Neovim), splitting interactions into **Normal Mode** (navigation & quick toggles) and **Edit Mode** (text & numeric typing).

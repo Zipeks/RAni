@@ -98,16 +98,16 @@ pub async fn login_with_browser(client_id: &str) -> Result<String, Box<dyn Error
 }
 
 pub fn clear_user_token() -> Result<(), keyring::Error> {
-    let entry = Entry::new("anilist-tui", "client_token")?;
+    let entry = Entry::new("rani", "client_token")?;
     entry.delete_credential()
 }
 pub fn save_user_token(token: &str) -> Result<(), keyring::Error> {
-    let entry = Entry::new("anilist-tui", "client_token")?;
+    let entry = Entry::new("rani", "client_token")?;
     entry.set_password(token)?;
     Ok(())
 }
 
 pub fn load_user_token() -> Option<String> {
-    let entry = Entry::new("anilist-tui", "client_token").ok()?;
+    let entry = Entry::new("rani", "client_token").ok()?;
     entry.get_password().ok()
 }

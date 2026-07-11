@@ -23,11 +23,11 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
-     inkscape:zoom="1.6393276"
-     inkscape:cx="212.89216"
-     inkscape:cy="269.31773"
+     inkscape:zoom="1.1591797"
+     inkscape:cx="388.20557"
+     inkscape:cy="252.33362"
      inkscape:window-width="2550"
-     inkscape:window-height="1386"
+     inkscape:window-height="1396"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
@@ -35,14 +35,16 @@
      showguides="false"
      inkscape:lockguides="false">
     <sodipodi:guide
-       position="-540.16048,255.98803"
-       orientation="0,-1"
-       id="guide26"
-       inkscape:locked="false" />
-    <sodipodi:guide
-       position="76.155013,218.31929"
-       orientation="0,-1"
+       position="76.155013,256"
+       orientation="0,1"
        id="guide27"
+       inkscape:locked="false"
+       inkscape:label=""
+       inkscape:color="rgb(0,134,229)" />
+    <sodipodi:guide
+       position="208.2123,183.62262"
+       orientation="0,-1"
+       id="guide1"
        inkscape:locked="false" />
   </sodipodi:namedview>
   <defs
@@ -61,9 +63,9 @@
        id="rect2"
        style="fill:#1e1e2e;fill-opacity:1;stroke:#9ee1ff;stroke-width:20.0189;stroke-dasharray:none;stroke-opacity:1" />
     <path
-       d="M 55.994065,299.30153 117.16128,238.13432 55.994065,176.96711"
+       d="M 68.725172,320.1101 143.9277,244.90757 68.725172,169.70505"
        id="path2"
-       style="fill:none;stroke:#9fe1ff;stroke-width:16.9215;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;paint-order:normal" />
+       style="fill:none;stroke:#9fe1ff;stroke-width:23.3834;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;paint-order:normal" />
     <text
        xml:space="preserve"
        style="font-size:192px;letter-spacing:0.03px;writing-mode:lr-tb;direction:ltr;white-space:pre;inline-size:215.623;display:inline;fill:none;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
@@ -72,15 +74,15 @@
        id="text19" />
     <text
        xml:space="preserve"
-       style="font-size:142.369px;letter-spacing:0px;writing-mode:lr-tb;direction:ltr;fill:#d34516;fill-opacity:1;stroke:#1e2650;stroke-width:1.2562;stroke-dasharray:none;stroke-opacity:1"
-       x="138.40012"
-       y="293.60703"
+       style="font-size:226.667px;letter-spacing:0px;writing-mode:lr-tb;direction:ltr;fill:#d34516;fill-opacity:1;stroke:#1e2650;stroke-width:1.2562;stroke-dasharray:none;stroke-opacity:1"
+       x="172.49918"
+       y="328.37738"
        id="text20"><tspan
          sodipodi:role="line"
          id="tspan20"
-         x="138.40012"
-         y="293.60703"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:142.369px;font-family:'Droid Sans Mono';-inkscape-font-specification:'Droid Sans Mono';letter-spacing:0px;fill:#f74c00;fill-opacity:1;stroke:none;stroke-width:1.2562;stroke-opacity:1"
-         dx="0 0 0 -13.420137">RAni</tspan></text>
+         x="172.49918"
+         y="328.37738"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:226.667px;font-family:'Droid Sans Mono';-inkscape-font-specification:'Droid Sans Mono';letter-spacing:0px;fill:#f74c00;fill-opacity:1;stroke:none;stroke-width:1.2562;stroke-opacity:1"
+         dx="0 0">RA</tspan></text>
   </g>
 </svg>

@@ -20,3 +20,4 @@ tracing-appender = "0.2.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 open = "5.3.5"
 axum = "0.8.9"
+directories = "6.0.0"

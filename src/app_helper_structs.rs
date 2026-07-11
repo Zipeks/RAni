@@ -763,9 +763,10 @@ impl UserSearchFilter {
                     sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
                     ..Self::empty()
                 },
-                BrowseCategory::Search => Self { 
+                BrowseCategory::Search => Self {
                     sort: Some(vec![MediaListSort::UpdatedTimeDesc]),
-                    ..Self::empty() },
+                    ..Self::empty()
+                },
             },
             _ => Self::empty(),
         }
