@@ -12,6 +12,7 @@ use crate::{
 
 use ratatui::widgets::TableState;
 use std::collections::HashMap;
+use tracing_subscriber::Layer;
 
 #[derive(PartialEq)]
 pub enum ActiveBlock {
@@ -468,6 +469,7 @@ pub struct MediaDetails {
     pub end_date: Date,
     pub is_favourite: bool,
     pub media_id: i64,
+    pub relations: Option<Vec<MediaListItem>>,
 }
 
 impl From<get_media_details::ResponseData> for MediaDetails {
@@ -556,8 +558,53 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .unwrap_or(MediaStatus::Unknown);
 
         let media_id = media.as_ref().map(|m| m.id).unwrap_or(0);
+        let relations = media
+            .as_ref()
+            .and_then(|m| m.relations.as_ref())
+            .and_then(|r| r.nodes.as_ref())
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .flatten()
+                    .map(|node| {
+                        let titles = if let Some(t) = node.title.as_ref() {
+                            Titles {
+                                user_preferred: t
+                                    .user_preferred
+                                    .clone()
+                                    .unwrap_or_else(|| "Unknown".to_string()),
+                                romaji: t.romaji.clone().unwrap_or_default(),
+                                english: t.english.clone().unwrap_or_default(),
+                                native: t.native.clone().unwrap_or_default(),
+                            }
+                        } else {
+                            Titles {
+                                user_preferred: "Unknown".to_string(),
+                                romaji: "".to_string(),
+                                english: "".to_string(),
+                                native: "".to_string(),
+                            }
+                        };
+
+                        MediaListItem {
+                            id: node.id,
+                            titles,
+                            progress: None,
+                            total: None,
+                            status: None,
+                            average_score: None,
+                            next_airing_episode: None,
+                            format: None,
+
+                            type_: node.type_.unwrap_or(MediaType::Unknown),
+                            is_favourite: node.is_favourite,
+                        }
+                    })
+                    .collect()
+            });
 
         let mut user_media_details = None;
+
         if let Some(m) = media.as_ref().and_then(|m| m.media_list_entry.as_ref()) {
             let user_media_id = Some(m.id);
             let media_id = m.media_id;
@@ -620,6 +667,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             end_date,
             is_favourite,
             media_id,
+            relations,
         }
     }
 }

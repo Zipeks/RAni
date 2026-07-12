@@ -52,5 +52,20 @@ query GetMediaDetails($mediaId: Int!, $format: ScoreFormat) {
     }
     format
     id
+    relations {
+      nodes {
+        id
+        title {
+          english
+          native
+          romaji
+          userPreferred
+        }
+        type
+        format
+        isFavourite
+      }
+    }
   }
 }
+
