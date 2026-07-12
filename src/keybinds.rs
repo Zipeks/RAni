@@ -10,7 +10,6 @@ use crate::{
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEvent;
 use std::sync::mpsc::Sender;
-use tracing::info;
 
 pub fn handle_sidebar_events(
     app: &mut App,

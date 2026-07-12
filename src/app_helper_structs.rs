@@ -396,7 +396,6 @@ impl BrowseCategory {
 }
 
 pub struct BrowseState {
-    pub loaded_view: CurrentView,
     pub media: Option<UserMediaList>,
     pub state: TableState,
     pub current_category: BrowseCategory,
@@ -500,7 +499,8 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .as_ref()
             .and_then(|m| m.description.clone())
             .unwrap_or_else(|| "No description available.".to_string())
-            .replace("<br>", "\n");
+            .replace("<br>", "\n")
+            .replace("<BR>", "\n");
 
         let total = media.as_ref().and_then(|m| m.chapters.or(m.episodes));
         let volumes = media.as_ref().and_then(|m| m.volumes);

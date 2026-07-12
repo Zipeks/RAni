@@ -11,7 +11,7 @@ use ratatui::crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
 use std::error::Error;
 use std::io;
 use std::ops::Deref;
-use tracing::info;
+use tracing::error;
 use tracing_subscriber::EnvFilter;
 
 mod anilist;
@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     s
                 }
                 Err(e) => {
+                    error!("Something went wrong during authorization: {}", e);
                     println!("Something went wrong during authorization: {}", e);
                     return Ok(());
                 }
@@ -72,6 +73,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )?;
     Ok(())
 }
+
 fn init_tracing() -> tracing_appender::non_blocking::WorkerGuard {
     let log_dir = directories::ProjectDirs::from("", "", "anilist-tui")
         .map(|dirs| {

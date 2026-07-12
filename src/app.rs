@@ -13,8 +13,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
+use tracing::error;
 
-pub use crate::anilist::anilist_types::{MediaListSort, MediaListStatus, MediaType};
+pub use crate::anilist::anilist_types::{MediaListStatus, MediaType};
 use crate::anilist::client::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
@@ -77,7 +78,6 @@ impl App {
             browse_state: BrowseState {
                 active_filters: HashMap::new(),
                 active_user_filters: HashMap::new(),
-                loaded_view: CurrentView::UserAnime,
                 media: None,
                 state: TableState::default(),
                 current_category: BrowseCategory::CategoryOne,
@@ -106,6 +106,7 @@ impl App {
         }
     }
     pub fn set_error(&mut self, error_message: String) {
+        error!(error_message);
         self.active_popup = Some(ActivePopup::Error);
         self.error_message = Some(error_message);
     }
