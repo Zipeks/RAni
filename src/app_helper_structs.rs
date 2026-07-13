@@ -472,6 +472,7 @@ pub struct MediaDetails {
     pub is_favourite: bool,
     pub media_id: i64,
     pub relations: Option<Vec<MediaListItem>>,
+    pub format: MediaFormat,
 }
 
 impl From<get_media_details::ResponseData> for MediaDetails {
@@ -552,6 +553,11 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .and_then(|m| m.status)
             .unwrap_or(MediaStatus::Unknown);
 
+        let format = media
+            .as_ref()
+            .and_then(|m| m.format)
+            .unwrap_or(MediaFormat::Unknown);
+
         let media_id = media.as_ref().map(|m| m.id).unwrap_or(0);
         let relations = media
             .as_ref()
@@ -589,7 +595,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
                             status: None,
                             average_score: None,
                             next_airing_episode: None,
-                            format: None,
+                            format: Some(format),
 
                             type_: node.type_.unwrap_or(MediaType::Unknown),
                             is_favourite: node.is_favourite,
@@ -661,6 +667,7 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             is_favourite,
             media_id,
             relations,
+            format,
         }
     }
 }

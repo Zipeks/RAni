@@ -129,6 +129,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &mut App, stack_index: usize, is
                     Span::raw(media_details.media_status.to_string()),
                 ]),
                 Line::from(vec![
+                    Span::styled("Format:     ", label_style),
+                    Span::raw(media_details.format.to_string()),
+                ]),
+                Line::from(vec![
                     Span::styled(
                         match media_details.type_ {
                             MediaType::Anime => "Episodes:   ",
