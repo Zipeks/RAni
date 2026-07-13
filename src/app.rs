@@ -518,64 +518,93 @@ impl App {
     }
 
     pub fn open_edit_popup(&mut self) {
-        let selected_item = if let Some(selected_index) = self.browse_state.state.selected() {
-            let current_items = self.get_current_center_items();
-            if selected_index < current_items.len() {
-                Some(current_items[selected_index].clone())
-            } else {
-                None
+        if let Some(state) = self.view_stack.last() {
+            match state {
+                PanelState::Details(details) => {
+                    self.edit_is_manga = matches!(details.type_, MediaType::Manga);
+                    if let Some(user_details) = &details.user_media_details {
+                        self.edited_media = Some(user_details.clone());
+                        let start = user_details.started_at.to_string();
+                        self.edit_start_date_text = if start == "Unknown" {
+                            String::new()
+                        } else {
+                            start
+                        };
+                        let end = user_details.completed_at.to_string();
+                        self.edit_end_date_text =
+                            if end == "Unknown" { String::new() } else { end };
+                    } else {
+                        self.edited_media = Some(UserMediaDetails {
+                            media_id: details.media_id,
+                            user_media_id: None,
+                            progress: 0,
+                            progress_volumes: None,
+                            repeat: 0,
+                            started_at: Date::empty(),
+                            completed_at: Date::empty(),
+                            score: 0.0,
+                            status: MediaListStatus::Current,
+                            notes: String::new(),
+                        });
+                        self.edit_start_date_text = String::new();
+                        self.edit_end_date_text = String::new();
+                    }
+                    self.edit_popup_index = 0;
+                    self.active_popup = Some(ActivePopup::EditMedia);
+                    return;
+                }
+                PanelState::RelationsList(items, state) => {
+                    if let Some(idx) = state.selected() {
+                        let item = &items[idx];
+                        self.edit_is_manga = matches!(item.type_, MediaType::Manga);
+
+                        self.edited_media = Some(UserMediaDetails {
+                            media_id: item.id,
+                            user_media_id: None,
+                            progress: item.progress.unwrap_or(0),
+                            progress_volumes: None,
+                            repeat: 0,
+                            started_at: Date::empty(),
+                            completed_at: Date::empty(),
+                            score: 0.0,
+                            status: item.status.unwrap_or(MediaListStatus::Current),
+                            notes: String::new(),
+                        });
+                        self.edit_start_date_text = String::new();
+                        self.edit_end_date_text = String::new();
+                        self.edit_popup_index = 0;
+                        self.active_popup = Some(ActivePopup::EditMedia);
+                        return;
+                    }
+                }
             }
-        } else {
-            None
-        };
-
-        let Some(item) = selected_item else {
-            return;
-        };
-
-        self.edit_is_manga = matches!(item.type_, MediaType::Manga);
-
-        if let Some(PanelState::Details(details)) = &self.view_stack.last()
-            && let Some(user_details) = &details.user_media_details
-        {
-            self.edited_media = Some(user_details.clone());
-            self.active_popup = Some(ActivePopup::EditMedia);
-            self.edit_popup_index = 0;
-
-            let start = user_details.started_at.to_string();
-            self.edit_start_date_text = if start == "Unknown" {
-                String::new()
-            } else {
-                start
-            };
-
-            let end = user_details.completed_at.to_string();
-            self.edit_end_date_text = if end == "Unknown" { String::new() } else { end };
-            return;
         }
 
-        let user_media_id = None;
-        let progress = item.progress.unwrap_or(0);
-        let status = item.status.unwrap_or(MediaListStatus::Current);
-        let media_id = item.id;
+        let selected_item = self
+            .browse_state
+            .state
+            .selected()
+            .and_then(|idx| self.get_current_center_items().get(idx).cloned());
 
-        self.edited_media = Some(UserMediaDetails {
-            user_media_id,
-            media_id,
-            progress,
-            progress_volumes: None,
-            repeat: 0,
-            started_at: Date::empty(),
-            completed_at: Date::empty(),
-            score: 0.0,
-            status,
-            notes: String::new(),
-        });
-
-        self.edit_start_date_text = String::new();
-        self.edit_end_date_text = String::new();
-        self.edit_popup_index = 0;
-        self.active_popup = Some(ActivePopup::EditMedia);
+        if let Some(item) = selected_item {
+            self.edit_is_manga = matches!(item.type_, MediaType::Manga);
+            self.edited_media = Some(UserMediaDetails {
+                media_id: item.id,
+                user_media_id: None,
+                progress: item.progress.unwrap_or(0),
+                progress_volumes: None,
+                repeat: 0,
+                started_at: Date::empty(),
+                completed_at: Date::empty(),
+                score: 0.0,
+                status: item.status.unwrap_or(MediaListStatus::Current),
+                notes: String::new(),
+            });
+            self.edit_start_date_text = String::new();
+            self.edit_end_date_text = String::new();
+            self.edit_popup_index = 0;
+            self.active_popup = Some(ActivePopup::EditMedia);
+        }
     }
 
     pub fn save_edited_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
@@ -588,10 +617,11 @@ impl App {
 
         let media_id = edited_media.media_id;
 
+        let is_top_details = matches!(self.view_stack.last(), Some(PanelState::Details(_)));
+
         self.is_loading = true;
         let client_clone = client.clone();
         let tx_clone = tx.clone();
-
         let tx_for_action = tx_clone.clone();
         let client_for_action = client_clone.clone();
 
@@ -601,6 +631,7 @@ impl App {
             if res.is_ok() {
                 client_clone.clear_media_list_cache();
                 client_clone.delete_from_details_cache(media_id).await;
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
 
             let action: AppAction = Box::new(move |app: &mut App| {
@@ -610,9 +641,14 @@ impl App {
                         app.active_popup = None;
                         app.edited_media = None;
 
-                        app.fetch_media_details(client_for_action.clone(), tx_for_action.clone());
-
-                        app.is_loading = false;
+                        if is_top_details {
+                            app.fetch_media_details_by_id(
+                                client_for_action.clone(),
+                                tx_for_action.clone(),
+                                media_id,
+                                true,
+                            );
+                        }
 
                         match app.current_view {
                             CurrentView::UserAnime | CurrentView::UserManga => {
@@ -636,35 +672,39 @@ impl App {
         if self.is_loading {
             return;
         }
-        let Some(PanelState::Details(media_details)) = &self.view_stack.last() else {
+
+        let (id, media_type, current_fav_state) = if let Some(state) = self.view_stack.last() {
+            match state {
+                PanelState::Details(d) => (d.media_id, d.type_, d.is_favourite),
+                PanelState::RelationsList(items, state) => {
+                    if let Some(idx) = state.selected() {
+                        let item = &items[idx];
+                        (item.id, item.type_, item.is_favourite)
+                    } else {
+                        return;
+                    }
+                }
+            }
+        } else {
             return;
         };
 
-        let id = media_details.media_id;
-        let media_type = media_details.type_;
-
-        let next_favourite_state = !media_details.is_favourite;
-
+        let next_favourite_state = !current_fav_state;
         self.is_loading = true;
         self.unset_error();
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
-
-            let (anime_id, manga_id) = {
-                match media_type {
-                    MediaType::Anime => (Some(id), None),
-                    MediaType::Manga => (None, Some(id)),
-                    _ => (None, None),
-                }
+            let (anime_id, manga_id) = match media_type {
+                MediaType::Anime => (Some(id), None),
+                MediaType::Manga => (None, Some(id)),
+                _ => (None, None),
             };
 
             let fetch_future = client.toggle_favourite(anime_id, manga_id);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
 
-            let is_success = matches!(timeout_result, Ok(Ok(_)));
-
-            if is_success {
+            if matches!(timeout_result, Ok(Ok(_))) {
                 client
                     .update_details_cache_favourite(id, next_favourite_state)
                     .await;
@@ -674,8 +714,21 @@ impl App {
                 app.is_loading = false;
                 match timeout_result {
                     Ok(Ok(_data)) => {
-                        if let Some(PanelState::Details(details)) = app.view_stack.last_mut() {
-                            details.is_favourite = !details.is_favourite;
+                        if let Some(state) = app.view_stack.last_mut() {
+                            match state {
+                                PanelState::Details(d) => {
+                                    if d.media_id == id {
+                                        d.is_favourite = next_favourite_state;
+                                    }
+                                }
+                                PanelState::RelationsList(items, state) => {
+                                    if let Some(idx) = state.selected()
+                                        && items[idx].id == id
+                                    {
+                                        items[idx].is_favourite = next_favourite_state;
+                                    }
+                                }
+                            }
                         }
                     }
                     Ok(Err(api_error)) => {
@@ -695,15 +748,18 @@ impl App {
             return;
         }
 
-        let Some(PanelState::Details(media_details)) = &self.view_stack.last() else {
-            return;
-        };
-        let id = media_details.media_id;
-
-        let Some(user_media_details) = &media_details.user_media_details else {
-            return;
-        };
-        let Some(user_media_id) = user_media_details.user_media_id else {
+        let (media_id, user_media_id) = if let Some(PanelState::Details(d)) = self.view_stack.last()
+        {
+            if let Some(u) = &d.user_media_details {
+                if let Some(uid) = u.user_media_id {
+                    (d.media_id, uid)
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        } else {
             return;
         };
 
@@ -717,24 +773,20 @@ impl App {
 
         tokio::spawn(async move {
             let timeout_duration = Duration::from_secs(5);
-
             let fetch_future = client_clone.delete_media(user_media_id);
             let timeout_result = tokio::time::timeout(timeout_duration, fetch_future).await;
 
-            let is_success = matches!(timeout_result, Ok(Ok(_)));
-
-            if is_success {
-                client_clone.delete_from_details_cache(id).await;
+            if matches!(timeout_result, Ok(Ok(_))) {
+                client_clone.delete_from_details_cache(media_id).await;
                 client_clone.clear_media_list_cache();
-
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
 
             let action: AppAction = Box::new(move |app: &mut App| {
                 app.is_loading = false;
                 match timeout_result {
                     Ok(Ok(_data)) => {
-                        // app.clean_media_details();
+                        app.pop_view_stack();
 
                         match app.current_view {
                             CurrentView::UserAnime | CurrentView::UserManga => {

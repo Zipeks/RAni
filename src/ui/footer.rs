@@ -23,6 +23,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             "Edit status: e",
             "Toggle favourite: f",
             "Delete media: d",
+            "Related: r",
             "Open anilist: o",
         ],
     };
