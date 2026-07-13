@@ -4,7 +4,7 @@ use crate::{
     app_helper_structs::{
         ActiveBlock,
         ActivePopup::{self},
-        BrowseCategory, CurrentView, TitleLanguage,
+        BrowseCategory, CurrentView, PanelState, TitleLanguage,
     },
 };
 use ratatui::crossterm::event::KeyCode;
@@ -129,45 +129,67 @@ pub fn handle_center_events(
         _ => {}
     }
 }
-
 pub fn handle_details_events(
     app: &mut App,
     key: KeyEvent,
     client: AnilistClient,
     tx: Sender<AppAction>,
 ) {
+    let stack_len = app.view_stack.len();
+    let is_in_relations = matches!(app.view_stack.last(), Some(PanelState::RelationsList(_, _)));
+
+    let is_in_relation_details = stack_len >= 3
+        && matches!(app.view_stack[stack_len - 1], PanelState::Details(_))
+        && matches!(
+            app.view_stack[stack_len - 2],
+            PanelState::RelationsList(_, _)
+        );
+
     match key.code {
         KeyCode::Char('h') | KeyCode::Left => {
-            app.active_block = ActiveBlock::Center;
-            app.media_details = None;
+            app.pop_view_stack();
         }
-        KeyCode::Char('j') | KeyCode::Down | KeyCode::Char('k') | KeyCode::Up => {
-            match key.code {
-                KeyCode::Char('j') | KeyCode::Down => app.next_center_item(),
-                KeyCode::Char('k') | KeyCode::Up => app.previous_center_item(),
-                _ => {}
-            }
-            if let Some(selected_index) = app.browse_state.state.selected() {
-                let current_items = app.get_current_center_items();
-
-                if selected_index < current_items.len() {
-                    app.fetch_media_details(client, tx);
-                    app.active_block = ActiveBlock::Details;
+        KeyCode::Char('j') | KeyCode::Down => {
+            if is_in_relations {
+                app.relations_next();
+            } else if is_in_relation_details {
+                app.relations_under_next();
+                if let Some(id) = app.get_selected_relation_id() {
+                    app.fetch_media_details_by_id(client, tx, id, true);
                 }
+            } else {
+                app.next_center_item();
+                app.fetch_media_details(client, tx);
             }
         }
-        KeyCode::Char('e') => {
-            app.open_edit_popup();
+        KeyCode::Char('k') | KeyCode::Up => {
+            if is_in_relations {
+                app.relations_previous();
+            } else if is_in_relation_details {
+                app.relations_under_previous();
+                if let Some(id) = app.get_selected_relation_id() {
+                    app.fetch_media_details_by_id(client, tx, id, true);
+                }
+            } else {
+                app.previous_center_item();
+                app.fetch_media_details(client, tx);
+            }
         }
-        KeyCode::Char('f') => {
-            app.active_popup = Some(ActivePopup::Favourite);
+        KeyCode::Char('r') => {
+            app.open_relations_list();
         }
-        KeyCode::Char('d') => {
-            app.active_popup = Some(ActivePopup::DeleteMedia);
+        KeyCode::Char('l') | KeyCode::Right | KeyCode::Enter => {
+            if let Some(PanelState::RelationsList(items, state)) = app.view_stack.last()
+                && let Some(idx) = state.selected()
+            {
+                let media_id = items[idx].id;
+                app.fetch_media_details_by_id(client, tx, media_id, false);
+            }
         }
-        KeyCode::Char('o') => {
-            app.open_anilist();
-        }
+        KeyCode::Char('e') => app.open_edit_popup(),
+        KeyCode::Char('f') => app.active_popup = Some(ActivePopup::Favourite),
+        KeyCode::Char('d') => app.active_popup = Some(ActivePopup::DeleteMedia),
+        KeyCode::Char('o') => app.open_anilist(),
         _ => {}
     }
 }
@@ -271,30 +293,29 @@ pub fn handle_edit_media_popup_events(
                 }
             }
             KeyCode::Char(c) => {
+                let max_episodes = app
+                    .get_media_details()
+                    .and_then(|d| d.total)
+                    .unwrap_or(20000);
+
+                let max_volumes = app
+                    .get_media_details()
+                    .and_then(|d| d.volumes)
+                    .unwrap_or(20000);
+
                 if let Some(media) = &mut app.edited_media {
                     match current_field {
                         CurrentEditField::EpisodeProgress => {
                             if let Some(digit) = c.to_digit(10) {
-                                media.progress = (media.progress * 10 + (digit as i64)).clamp(
-                                    0,
-                                    app.media_details.as_ref().unwrap().total.unwrap_or(20000),
-                                );
+                                media.progress =
+                                    (media.progress * 10 + (digit as i64)).clamp(0, max_episodes);
                             }
                         }
                         CurrentEditField::VolumeProgress => {
                             if let Some(digit) = c.to_digit(10) {
                                 let vols = media.progress_volumes.unwrap_or(0);
-                                media.progress_volumes = Some(
-                                    vols * 10
-                                        + (digit as i64).clamp(
-                                            0,
-                                            app.media_details
-                                                .as_ref()
-                                                .unwrap()
-                                                .volumes
-                                                .unwrap_or(20000),
-                                        ),
-                                );
+                                media.progress_volumes =
+                                    Some((vols * 10 + (digit as i64)).clamp(0, max_volumes));
                             }
                         }
                         CurrentEditField::Score => {
@@ -347,6 +368,15 @@ pub fn handle_edit_media_popup_events(
                 app.edit_popup_index = (app.edit_popup_index + fields.len() - 1) % fields.len();
             }
             KeyCode::Left | KeyCode::Char('h') | KeyCode::Right | KeyCode::Char('l') => {
+                let max_episodes = app
+                    .get_media_details()
+                    .and_then(|d| d.total)
+                    .unwrap_or(20000);
+
+                let max_volumes = app
+                    .get_media_details()
+                    .and_then(|d| d.volumes)
+                    .unwrap_or(20000);
                 if let Some(media) = &mut app.edited_media {
                     let step = if key.code == KeyCode::Right || key.code == KeyCode::Char('l') {
                         1
@@ -363,17 +393,11 @@ pub fn handle_edit_media_popup_events(
                             }
                         }
                         CurrentEditField::EpisodeProgress => {
-                            media.progress = (media.progress + step).clamp(
-                                0,
-                                app.media_details.as_ref().unwrap().total.unwrap_or(20000),
-                            )
+                            media.progress = (media.progress + step).clamp(0, max_episodes)
                         }
                         CurrentEditField::VolumeProgress => {
                             let mut vols = media.progress_volumes.unwrap_or(0);
-                            vols = (vols + step).clamp(
-                                0,
-                                app.media_details.as_ref().unwrap().volumes.unwrap_or(20000),
-                            );
+                            vols = (vols + step).clamp(0, max_volumes);
                             media.progress_volumes = Some(vols);
                         }
                         CurrentEditField::Score => {

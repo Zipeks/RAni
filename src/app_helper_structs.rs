@@ -12,7 +12,6 @@ use crate::{
 
 use ratatui::widgets::TableState;
 use std::collections::HashMap;
-use tracing_subscriber::Layer;
 
 #[derive(PartialEq)]
 pub enum ActiveBlock {
@@ -61,6 +60,7 @@ impl User {
         &self.name
     }
 }
+
 pub struct PageInfo {
     pub current_page: i64,
     pub per_page: i64,
@@ -437,6 +437,10 @@ impl Date {
         }
     }
 }
+pub enum PanelState {
+    Details(Box<MediaDetails>),
+    RelationsList(Vec<MediaListItem>, TableState),
+}
 
 #[derive(Clone)]
 pub struct UserMediaDetails {
@@ -459,8 +463,6 @@ pub struct MediaDetails {
     pub total: Option<i64>,
     pub volumes: Option<i64>,
     pub cover_image: String,
-    pub season: MediaSeason,
-    pub season_year: i64,
     pub site_url: String,
     pub media_status: MediaStatus,
     pub type_: MediaType,
@@ -513,17 +515,10 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             .and_then(|c| c.large.clone())
             .unwrap_or_default();
 
-        let season = media
-            .as_ref()
-            .and_then(|m| m.season)
-            .unwrap_or(MediaSeason::Unknown);
-
         let type_ = media
             .as_ref()
             .and_then(|m| m.type_)
             .unwrap_or(MediaType::Unknown);
-
-        let season_year = media.as_ref().and_then(|m| m.season_year).unwrap_or(0);
 
         let site_url = media
             .as_ref()
@@ -658,8 +653,6 @@ impl From<get_media_details::ResponseData> for MediaDetails {
             volumes,
             type_,
             cover_image,
-            season,
-            season_year,
             site_url,
             media_status,
             user_media_details,

@@ -1,3 +1,3 @@
 pub mod browse;
 pub mod details;
-mod draw_media_list;
+pub mod draw_media_list;

@@ -4,7 +4,6 @@ use crate::{
     ui::content::draw_media_list,
 };
 use ratatui::prelude::*;
-use ratatui::widgets::Paragraph;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()

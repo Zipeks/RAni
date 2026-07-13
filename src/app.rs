@@ -19,7 +19,7 @@ pub use crate::anilist::anilist_types::{MediaListStatus, MediaType};
 use crate::anilist::client::AnilistClient;
 use crate::app_helper_structs::{
     ActiveBlock, ActivePopup, BrowseCategory, BrowseState, CurrentView, Date, MediaDetails,
-    MediaListItem, SearchFilter, TitleLanguage, User, UserMediaDetails, UserMediaList,
+    MediaListItem, PanelState, SearchFilter, TitleLanguage, User, UserMediaDetails, UserMediaList,
     UserSearchFilter,
 };
 
@@ -38,7 +38,8 @@ pub struct App {
     pub image_cache: HashMap<i64, StatefulProtocol>,
     pub currently_fetching_image: Option<i64>,
 
-    pub media_details: Option<MediaDetails>,
+    pub view_stack: Vec<PanelState>,
+
     pub title_language: TitleLanguage,
 
     pub language_popup_index: usize,
@@ -85,7 +86,7 @@ impl App {
             image_picker: picker,
             image_cache: HashMap::new(),
             currently_fetching_image: None,
-            media_details: None,
+            view_stack: vec![],
             title_language: TitleLanguage::UserPreferred,
 
             active_popup: None,
@@ -293,8 +294,8 @@ impl App {
     }
 
     pub fn open_anilist(&mut self) {
-        if let Some(media_details) = &self.media_details {
-            match open::that(&media_details.site_url) {
+        if let Some(PanelState::Details(details)) = &self.view_stack.last() {
+            match open::that(&details.site_url) {
                 Ok(()) => {}
                 Err(err) => self.set_error(format!("Something went wrong {}", err)),
             };
@@ -385,23 +386,28 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
-    pub fn clean_media_details(&mut self) {
-        self.media_details = None;
-    }
+
     pub fn fetch_media_details(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
-        let selected_index = self.browse_state.state.selected();
-        let current_items = self.get_current_center_items();
+        let media_id = self
+            .browse_state
+            .state
+            .selected()
+            .and_then(|idx| self.get_current_center_items().get(idx))
+            .map(|item| item.id);
 
-        let Some(idx) = selected_index else {
-            return;
-        };
-        if idx >= current_items.len() {
-            return;
+        if let Some(id) = media_id {
+            self.view_stack.clear();
+            self.fetch_media_details_by_id(client, tx, id, false);
         }
+    }
 
-        let media_id = current_items[idx].id;
-
-        self.clean_media_details();
+    pub fn fetch_media_details_by_id(
+        &mut self,
+        client: AnilistClient,
+        tx: Sender<AppAction>,
+        media_id: i64,
+        replace_top: bool,
+    ) {
         self.is_loading = true;
         self.unset_error();
 
@@ -438,8 +444,15 @@ impl App {
                         if !cover_url.is_empty() {
                             app.fetch_cover(media_id, cover_url.clone(), tx_for_action);
                         }
-
-                        app.media_details = Some(media_details);
+                        if app.active_block == ActiveBlock::Center {
+                            app.open_main_details(media_details);
+                        } else {
+                            if replace_top {
+                                app.view_stack.pop();
+                            }
+                            app.view_stack
+                                .push(PanelState::Details(Box::new(media_details)));
+                        }
                     }
                     Ok(Err(api_error)) => {
                         app.set_error(format!("API error: {}", api_error));
@@ -522,7 +535,7 @@ impl App {
 
         self.edit_is_manga = matches!(item.type_, MediaType::Manga);
 
-        if let Some(details) = &self.media_details
+        if let Some(PanelState::Details(details)) = &self.view_stack.last()
             && let Some(user_details) = &details.user_media_details
         {
             self.edited_media = Some(user_details.clone());
@@ -564,6 +577,7 @@ impl App {
         self.edit_popup_index = 0;
         self.active_popup = Some(ActivePopup::EditMedia);
     }
+
     pub fn save_edited_media(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         let Some(mut edited_media) = self.edited_media.clone() else {
             return;
@@ -617,11 +631,12 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+
     pub fn fetch_toggle_favourite(&mut self, client: AnilistClient, tx: Sender<AppAction>) {
         if self.is_loading {
             return;
         }
-        let Some(media_details) = &self.media_details else {
+        let Some(PanelState::Details(media_details)) = &self.view_stack.last() else {
             return;
         };
 
@@ -659,7 +674,7 @@ impl App {
                 app.is_loading = false;
                 match timeout_result {
                     Ok(Ok(_data)) => {
-                        if let Some(ref mut details) = app.media_details {
+                        if let Some(PanelState::Details(details)) = app.view_stack.last_mut() {
                             details.is_favourite = !details.is_favourite;
                         }
                     }
@@ -680,7 +695,7 @@ impl App {
             return;
         }
 
-        let Some(media_details) = &self.media_details else {
+        let Some(PanelState::Details(media_details)) = &self.view_stack.last() else {
             return;
         };
         let id = media_details.media_id;
@@ -719,7 +734,7 @@ impl App {
                 app.is_loading = false;
                 match timeout_result {
                     Ok(Ok(_data)) => {
-                        app.clean_media_details();
+                        // app.clean_media_details();
 
                         match app.current_view {
                             CurrentView::UserAnime | CurrentView::UserManga => {
@@ -741,6 +756,7 @@ impl App {
             let _ = tx_clone.send(action);
         });
     }
+
     pub fn get_current_filter(&mut self) -> SearchFilter {
         let key = (self.current_view, self.browse_state.current_category);
         self.browse_state
@@ -822,6 +838,99 @@ impl App {
 
     pub fn save_current_user_filter(&mut self) {
         self.active_popup = None;
+    }
+
+    pub fn get_media_details(&self) -> Option<&MediaDetails> {
+        if let Some(PanelState::Details(details)) = self.view_stack.last() {
+            return Some(details);
+        }
+        None
+    }
+
+    pub fn open_main_details(&mut self, details: MediaDetails) {
+        self.view_stack.clear();
+        self.view_stack.push(PanelState::Details(Box::new(details)));
+        self.active_block = ActiveBlock::Details;
+    }
+
+    pub fn open_relations_list(&mut self) {
+        if let Some(PanelState::Details(details)) = self.view_stack.last() {
+            if let Some(relations) = &details.relations {
+                if !relations.is_empty() {
+                    let mut state = TableState::default();
+                    state.select(Some(0));
+                    self.view_stack
+                        .push(PanelState::RelationsList(relations.clone(), state));
+                }
+            }
+        }
+    }
+
+    pub fn pop_view_stack(&mut self) {
+        if self.view_stack.len() > 1 {
+            self.view_stack.pop();
+        } else {
+            self.view_stack.clear();
+            self.active_block = ActiveBlock::Center;
+        }
+    }
+
+    pub fn relations_next(&mut self) {
+        if let Some(PanelState::RelationsList(items, state)) = self.view_stack.last_mut() {
+            if items.is_empty() {
+                return;
+            }
+            let current = state.selected().unwrap_or(0);
+            state.select(Some((current + 1) % items.len()));
+        }
+    }
+
+    pub fn relations_previous(&mut self) {
+        if let Some(PanelState::RelationsList(items, state)) = self.view_stack.last_mut() {
+            if items.is_empty() {
+                return;
+            }
+            let current = state.selected().unwrap_or(0);
+            state.select(Some((current + items.len() - 1) % items.len()));
+        }
+    }
+
+    pub fn relations_under_next(&mut self) {
+        let len = self.view_stack.len();
+        if len >= 2 {
+            if let PanelState::RelationsList(items, state) = &mut self.view_stack[len - 2] {
+                if items.is_empty() {
+                    return;
+                }
+                let current = state.selected().unwrap_or(0);
+                state.select(Some((current + 1) % items.len()));
+            }
+        }
+    }
+
+    pub fn relations_under_previous(&mut self) {
+        let len = self.view_stack.len();
+        if len >= 2 {
+            if let PanelState::RelationsList(items, state) = &mut self.view_stack[len - 2] {
+                if items.is_empty() {
+                    return;
+                }
+                let current = state.selected().unwrap_or(0);
+                state.select(Some((current + items.len() - 1) % items.len()));
+            }
+        }
+    }
+
+    pub fn get_selected_relation_id(&self) -> Option<i64> {
+        let len = self.view_stack.len();
+        if len >= 2 {
+            if let PanelState::RelationsList(items, state) = &self.view_stack[len - 2] {
+                if let Some(idx) = state.selected() {
+                    return Some(items[idx].id);
+                }
+            }
+        }
+        None
     }
 }
 

@@ -1,220 +1,464 @@
-use crate::{anilist::anilist_types::MediaType, app::App, app_helper_structs::ActiveBlock};
+use crate::{
+    anilist::anilist_types::MediaType, app::App, app_helper_structs::PanelState,
+    ui::content::draw_media_list,
+};
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::StatefulImage;
 
-pub fn draw(frame: &mut Frame, area: Rect, app: &mut App) {
-    let is_active = app.active_block == ActiveBlock::Details;
+pub fn draw(frame: &mut Frame, area: Rect, app: &mut App, stack_index: usize, is_active: bool) {
+    let view_stack = &mut app.view_stack;
+    let image_cache = &mut app.image_cache;
+    let currently_fetching_image = app.currently_fetching_image;
+    let title_language = app.title_language;
+    let current_view = app.current_view;
 
-    let details_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(if is_active {
-            Style::default().fg(Color::Cyan)
-        } else {
-            Style::default().fg(Color::DarkGray)
-        })
-        .border_type(BorderType::Rounded)
-        .title(" Details ")
-        .padding(Padding::proportional(1));
+    let panel = &mut view_stack[stack_index];
 
-    let inner_details_area = details_block.inner(area);
-    frame.render_widget(details_block, area);
+    match panel {
+        PanelState::Details(media_details) => {
+            let details_block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(if is_active {
+                    Style::default().fg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::DarkGray)
+                })
+                .border_type(BorderType::Rounded)
+                .title(" Details ")
+                .padding(Padding::proportional(1));
 
-    if let Some(media_details) = &app.media_details {
-        let vertical_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(14),
-                Constraint::Length(1),
-                Constraint::Fill(1),
-            ])
-            .split(inner_details_area);
+            let inner_details_area = details_block.inner(area);
+            frame.render_widget(details_block, area);
 
-        let top_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .spacing(2)
-            .constraints([Constraint::Length(25), Constraint::Fill(1)])
-            .split(vertical_chunks[0]);
+            let vertical_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(14),
+                    Constraint::Length(1),
+                    Constraint::Fill(1),
+                ])
+                .split(inner_details_area);
 
-        let image_area = top_chunks[0];
-        let media_id = app
-            .browse_state
-            .state
-            .selected()
-            .and_then(|idx| app.get_current_center_items().get(idx))
-            .map(|item| item.id)
-            .unwrap_or(0);
+            let top_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .spacing(2)
+                .constraints([Constraint::Length(25), Constraint::Fill(1)])
+                .split(vertical_chunks[0]);
 
-        if let Some(image_protocol) = app.image_cache.get_mut(&media_id) {
-            let image_widget = StatefulImage::default();
-            frame.render_stateful_widget(image_widget, image_area, image_protocol);
-        } else if app.currently_fetching_image == Some(media_id) {
-            frame.render_widget(Paragraph::new("⏳").centered(), image_area);
-        } else {
-            frame.render_widget(Paragraph::new("").centered(), image_area);
-        }
+            let image_area = top_chunks[0];
+            let media_id = media_details.media_id;
 
-        let right_panel_area = top_chunks[1];
-
-        let right_panel_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(4), Constraint::Fill(1)])
-            .split(right_panel_area);
-
-        let main_title = media_details.titles.get_title(&app.title_language);
-        let mut alt_titles = Vec::new();
-        let candidates = [
-            &media_details.titles.native,
-            &media_details.titles.romaji,
-            &media_details.titles.english,
-        ];
-        for t in candidates.iter() {
-            let t_str = t.as_str();
-            if !t_str.is_empty() && t_str != main_title && !alt_titles.contains(&t_str) {
-                alt_titles.push(t_str);
+            if let Some(image_protocol) = image_cache.get_mut(&media_id) {
+                let image_widget = StatefulImage::default();
+                frame.render_stateful_widget(image_widget, image_area, image_protocol);
+            } else if currently_fetching_image == Some(media_id) {
+                frame.render_widget(Paragraph::new("⏳").centered(), image_area);
+            } else {
+                frame.render_widget(Paragraph::new("").centered(), image_area);
             }
-        }
-        let mut title_spans = Vec::new();
 
-        if media_details.is_favourite {
-            title_spans.push(Span::styled("❤️", Style::default().fg(Color::Red)));
-            title_spans.push(Span::styled(" • ", Style::default().fg(Color::DarkGray)));
-        }
+            let right_panel_area = top_chunks[1];
 
-        title_spans.push(Span::styled(
-            main_title,
-            Style::default()
+            let right_panel_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(4), Constraint::Fill(1)])
+                .split(right_panel_area);
+
+            let main_title = media_details.titles.get_title(&title_language);
+            let mut alt_titles = Vec::new();
+            let candidates = [
+                &media_details.titles.native,
+                &media_details.titles.romaji,
+                &media_details.titles.english,
+            ];
+            for t in candidates.iter() {
+                let t_str = t.as_str();
+                if !t_str.is_empty() && t_str != main_title && !alt_titles.contains(&t_str) {
+                    alt_titles.push(t_str);
+                }
+            }
+            let mut title_spans = Vec::new();
+
+            if media_details.is_favourite {
+                title_spans.push(Span::styled("❤️", Style::default().fg(Color::Red)));
+                title_spans.push(Span::styled(" • ", Style::default().fg(Color::DarkGray)));
+            }
+
+            title_spans.push(Span::styled(
+                main_title,
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ));
+
+            let title_lines = vec![
+                Line::from(title_spans),
+                Line::from(Span::styled(
+                    alt_titles.join(" • "),
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let titles_paragraph = Paragraph::new(title_lines).wrap(Wrap { trim: true });
+            frame.render_widget(titles_paragraph, right_panel_chunks[0]);
+
+            let stats_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(right_panel_chunks[1]);
+
+            let label_style = Style::default().fg(Color::DarkGray);
+            let header_style = Style::default()
                 .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ));
+                .add_modifier(Modifier::BOLD);
 
-        let title_lines = vec![
-            Line::from(title_spans),
-            Line::from(Span::styled(
-                alt_titles.join(" • "),
-                Style::default().fg(Color::DarkGray),
-            )),
-        ];
+            let total_str = media_details
+                .total
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| "?".to_string());
 
-        let titles_paragraph = Paragraph::new(title_lines).wrap(Wrap { trim: true });
-        frame.render_widget(titles_paragraph, right_panel_chunks[0]);
+            let volumes_str = media_details
+                .volumes
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| "?".to_string());
 
-        let stats_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(right_panel_chunks[1]);
+            let mut info_lines = vec![
+                Line::from("Information").style(header_style),
+                Line::from(vec![
+                    Span::styled("Status:     ", label_style),
+                    Span::raw(media_details.media_status.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled(
+                        match media_details.type_ {
+                            MediaType::Anime => "Episodes:   ",
+                            MediaType::Manga => "Chapters:   ",
+                            MediaType::Unknown => "?:          ",
+                        },
+                        label_style,
+                    ),
+                    Span::raw(total_str),
+                ]),
+            ];
 
-        let label_style = Style::default().fg(Color::DarkGray);
-        let header_style = Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD);
-
-        let total_str = media_details
-            .total
-            .map(|t| t.to_string())
-            .unwrap_or_else(|| "?".to_string());
-
-        let volumes_str = media_details
-            .volumes
-            .map(|t| t.to_string())
-            .unwrap_or_else(|| "?".to_string());
-
-        let mut info_lines = vec![
-            Line::from("Information").style(header_style),
-            Line::from(vec![
-                Span::styled("Status:     ", label_style),
-                Span::raw(media_details.media_status.to_string()),
-            ]),
-            Line::from(vec![
-                Span::styled(
-                    match media_details.type_ {
-                        MediaType::Anime => "Episodes:   ",
-                        MediaType::Manga => "Chapters:   ",
-                        MediaType::Unknown => "?:          ",
-                    },
-                    label_style,
-                ),
-                Span::raw(total_str),
-            ]),
-        ];
-
-        if let MediaType::Manga = media_details.type_ {
-            info_lines.push(Line::from(vec![
-                Span::styled("Volumes:    ", label_style),
-                Span::raw(volumes_str),
-            ]));
-        }
-        info_lines.push(Line::from(vec![
-            Span::styled("Avg Score:  ", label_style),
-            Span::raw(format!("{} / 100", media_details.average_score)),
-        ]));
-        info_lines.push(Line::from(vec![
-            Span::styled("Start Date: ", label_style),
-            Span::raw(media_details.start_date.to_string()),
-        ]));
-        info_lines.push(Line::from(vec![
-            Span::styled("End Date:   ", label_style),
-            Span::raw(media_details.end_date.to_string()),
-        ]));
-
-        frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);
-
-        if let Some(user_media_details) = &media_details.user_media_details {
-            let mut user_info_lines = vec![];
-            user_info_lines.push(Line::from("Your List").style(header_style));
-            user_info_lines.push(Line::from(vec![
-                Span::styled("Status:     ", label_style),
-                Span::raw(user_media_details.status.to_string()),
-            ]));
-
-            user_info_lines.push(Line::from(vec![
-                Span::styled("Progress:   ", label_style),
-                Span::raw(user_media_details.progress.to_string()),
-            ]));
             if let MediaType::Manga = media_details.type_ {
-                user_info_lines.push(Line::from(vec![
+                info_lines.push(Line::from(vec![
                     Span::styled("Volumes:    ", label_style),
-                    Span::raw(user_media_details.progress_volumes.unwrap_or(0).to_string()),
+                    Span::raw(volumes_str),
                 ]));
             }
-            user_info_lines.push(Line::from(vec![
-                Span::styled("Score:      ", label_style),
-                Span::raw(user_media_details.score.to_string()),
+            info_lines.push(Line::from(vec![
+                Span::styled("Avg Score:  ", label_style),
+                Span::raw(format!("{} / 100", media_details.average_score)),
             ]));
-            user_info_lines.push(Line::from(vec![
+            info_lines.push(Line::from(vec![
                 Span::styled("Start Date: ", label_style),
-                Span::raw(user_media_details.started_at.to_string()),
+                Span::raw(media_details.start_date.to_string()),
             ]));
-            user_info_lines.push(Line::from(vec![
+            info_lines.push(Line::from(vec![
                 Span::styled("End Date:   ", label_style),
-                Span::raw(user_media_details.completed_at.to_string()),
+                Span::raw(media_details.end_date.to_string()),
             ]));
 
-            frame.render_widget(Paragraph::new(user_info_lines), stats_chunks[1]);
+            frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);
+
+            if let Some(user_media_details) = &media_details.user_media_details {
+                let mut user_info_lines = vec![];
+                user_info_lines.push(Line::from("Your List").style(header_style));
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("Status:     ", label_style),
+                    Span::raw(user_media_details.status.to_string()),
+                ]));
+
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("Progress:   ", label_style),
+                    Span::raw(user_media_details.progress.to_string()),
+                ]));
+                if let MediaType::Manga = media_details.type_ {
+                    user_info_lines.push(Line::from(vec![
+                        Span::styled("Volumes:    ", label_style),
+                        Span::raw(user_media_details.progress_volumes.unwrap_or(0).to_string()),
+                    ]));
+                }
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("Score:      ", label_style),
+                    Span::raw(user_media_details.score.to_string()),
+                ]));
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("Start Date: ", label_style),
+                    Span::raw(user_media_details.started_at.to_string()),
+                ]));
+                user_info_lines.push(Line::from(vec![
+                    Span::styled("End Date:   ", label_style),
+                    Span::raw(user_media_details.completed_at.to_string()),
+                ]));
+
+                frame.render_widget(Paragraph::new(user_info_lines), stats_chunks[1]);
+            }
+
+            let desc_area = vertical_chunks[2];
+
+            let clean_desc = media_details
+                .description
+                .replace("<br>\n", "\n")
+                .replace("<br>", "\n")
+                .replace("<i>", "")
+                .replace("</i>", "")
+                .replace("<b>", "")
+                .replace("</b>", "");
+
+            let description: Vec<Line> = clean_desc.lines().map(|t| Line::from(t)).collect();
+
+            let desc_block = Block::default()
+                .borders(Borders::TOP)
+                .border_style(Style::default().fg(Color::DarkGray))
+                .title(" Description ");
+
+            let p = Paragraph::new(description)
+                .block(desc_block)
+                .scroll((0, 0))
+                .wrap(Wrap { trim: false });
+
+            frame.render_widget(p, desc_area);
         }
+        PanelState::RelationsList(items, state) => {
+            let title_spans = vec![Span::styled(
+                " Related Media ",
+                Style::default()
+                    .fg(if is_active {
+                        Color::Cyan
+                    } else {
+                        Color::DarkGray
+                    })
+                    .add_modifier(Modifier::BOLD),
+            )];
 
-        let desc_area = vertical_chunks[2];
+            let page_info = Span::raw(format!(" {} items ", items.len()));
 
-        let clean_desc = media_details
-            .description
-            .replace("<br>\n", "\n")
-            .replace("<br>", "\n")
-            .replace("<i>", "")
-            .replace("</i>", "")
-            .replace("<b>", "")
-            .replace("</b>", "");
-
-        let description: Vec<Line> = clean_desc.lines().map(|t| Line::from(t)).collect();
-
-        let desc_block = Block::default()
-            .borders(Borders::TOP)
-            .border_style(Style::default().fg(Color::DarkGray))
-            .title(" Description ");
-
-        let p = Paragraph::new(description)
-            .block(desc_block)
-            .scroll((0, 0))
-            .wrap(Wrap { trim: false });
-
-        frame.render_widget(p, desc_area);
+            draw_media_list::draw(
+                frame,
+                area,
+                items,
+                is_active,
+                state,
+                title_spans,
+                page_info,
+                current_view,
+                &title_language,
+            );
+        }
     }
+
+    // let details_block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .border_style(if is_active {
+    //         Style::default().fg(Color::Cyan)
+    //     } else {
+    //         Style::default().fg(Color::DarkGray)
+    //     })
+    //     .border_type(BorderType::Rounded)
+    //     .title(" Details ")
+    //     .padding(Padding::proportional(1));
+    //
+    // let inner_details_area = details_block.inner(area);
+    // frame.render_widget(details_block, area);
+    //
+    // if let Some(PanelState::Details(media_details)) = app.view_stack.last() {
+    //     let vertical_chunks = Layout::default()
+    //         .direction(Direction::Vertical)
+    //         .constraints([
+    //             Constraint::Length(14),
+    //             Constraint::Length(1),
+    //             Constraint::Fill(1),
+    //         ])
+    //         .split(inner_details_area);
+    //
+    //     let top_chunks = Layout::default()
+    //         .direction(Direction::Horizontal)
+    //         .spacing(2)
+    //         .constraints([Constraint::Length(25), Constraint::Fill(1)])
+    //         .split(vertical_chunks[0]);
+    //
+    //     let image_area = top_chunks[0];
+    //     let media_id = app
+    //         .browse_state
+    //         .state
+    //         .selected()
+    //         .and_then(|idx| app.get_current_center_items().get(idx))
+    //         .map(|item| item.id)
+    //         .unwrap_or(0);
+    //
+    //     if let Some(image_protocol) = app.image_cache.get_mut(&media_id) {
+    //         let image_widget = StatefulImage::default();
+    //         frame.render_stateful_widget(image_widget, image_area, image_protocol);
+    //     } else if app.currently_fetching_image == Some(media_id) {
+    //         frame.render_widget(Paragraph::new("⏳").centered(), image_area);
+    //     } else {
+    //         frame.render_widget(Paragraph::new("").centered(), image_area);
+    //     }
+    //
+    //     let right_panel_area = top_chunks[1];
+    //
+    //     let right_panel_chunks = Layout::default()
+    //         .direction(Direction::Vertical)
+    //         .constraints([Constraint::Length(4), Constraint::Fill(1)])
+    //         .split(right_panel_area);
+    //
+    //     let main_title = media_details.titles.get_title(&app.title_language);
+    //     let mut alt_titles = Vec::new();
+    //     let candidates = [
+    //         &media_details.titles.native,
+    //         &media_details.titles.romaji,
+    //         &media_details.titles.english,
+    //     ];
+    //     for t in candidates.iter() {
+    //         let t_str = t.as_str();
+    //         if !t_str.is_empty() && t_str != main_title && !alt_titles.contains(&t_str) {
+    //             alt_titles.push(t_str);
+    //         }
+    //     }
+    //     let mut title_spans = Vec::new();
+    //
+    //     if media_details.is_favourite {
+    //         title_spans.push(Span::styled("❤️", Style::default().fg(Color::Red)));
+    //         title_spans.push(Span::styled(" • ", Style::default().fg(Color::DarkGray)));
+    //     }
+    //
+    //     title_spans.push(Span::styled(
+    //         main_title,
+    //         Style::default()
+    //             .fg(Color::Yellow)
+    //             .add_modifier(Modifier::BOLD),
+    //     ));
+    //
+    //     let title_lines = vec![
+    //         Line::from(title_spans),
+    //         Line::from(Span::styled(
+    //             alt_titles.join(" • "),
+    //             Style::default().fg(Color::DarkGray),
+    //         )),
+    //     ];
+    //
+    //     let titles_paragraph = Paragraph::new(title_lines).wrap(Wrap { trim: true });
+    //     frame.render_widget(titles_paragraph, right_panel_chunks[0]);
+    //
+    //     let stats_chunks = Layout::default()
+    //         .direction(Direction::Horizontal)
+    //         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+    //         .split(right_panel_chunks[1]);
+    //
+    //     let label_style = Style::default().fg(Color::DarkGray);
+    //     let header_style = Style::default()
+    //         .fg(Color::Yellow)
+    //         .add_modifier(Modifier::BOLD);
+    //
+    //     let total_str = media_details
+    //         .total
+    //         .map(|t| t.to_string())
+    //         .unwrap_or_else(|| "?".to_string());
+    //
+    //     let volumes_str = media_details
+    //         .volumes
+    //         .map(|t| t.to_string())
+    //         .unwrap_or_else(|| "?".to_string());
+    //
+    //     let mut info_lines = vec![
+    //         Line::from("Information").style(header_style),
+    //         Line::from(vec![
+    //             Span::styled("Status:     ", label_style),
+    //             Span::raw(media_details.media_status.to_string()),
+    //         ]),
+    //         Line::from(vec![
+    //             Span::styled(
+    //                 match media_details.type_ {
+    //                     MediaType::Anime => "Episodes:   ",
+    //                     MediaType::Manga => "Chapters:   ",
+    //                     MediaType::Unknown => "?:          ",
+    //                 },
+    //                 label_style,
+    //             ),
+    //             Span::raw(total_str),
+    //         ]),
+    //     ];
+    //
+    //     if let MediaType::Manga = media_details.type_ {
+    //         info_lines.push(Line::from(vec![
+    //             Span::styled("Volumes:    ", label_style),
+    //             Span::raw(volumes_str),
+    //         ]));
+    //     }
+    //     info_lines.push(Line::from(vec![
+    //         Span::styled("Avg Score:  ", label_style),
+    //         Span::raw(format!("{} / 100", media_details.average_score)),
+    //     ]));
+    //     info_lines.push(Line::from(vec![
+    //         Span::styled("Start Date: ", label_style),
+    //         Span::raw(media_details.start_date.to_string()),
+    //     ]));
+    //     info_lines.push(Line::from(vec![
+    //         Span::styled("End Date:   ", label_style),
+    //         Span::raw(media_details.end_date.to_string()),
+    //     ]));
+    //
+    //     frame.render_widget(Paragraph::new(info_lines), stats_chunks[0]);
+    //
+    //     if let Some(user_media_details) = &media_details.user_media_details {
+    //         let mut user_info_lines = vec![];
+    //         user_info_lines.push(Line::from("Your List").style(header_style));
+    //         user_info_lines.push(Line::from(vec![
+    //             Span::styled("Status:     ", label_style),
+    //             Span::raw(user_media_details.status.to_string()),
+    //         ]));
+    //
+    //         user_info_lines.push(Line::from(vec![
+    //             Span::styled("Progress:   ", label_style),
+    //             Span::raw(user_media_details.progress.to_string()),
+    //         ]));
+    //         if let MediaType::Manga = media_details.type_ {
+    //             user_info_lines.push(Line::from(vec![
+    //                 Span::styled("Volumes:    ", label_style),
+    //                 Span::raw(user_media_details.progress_volumes.unwrap_or(0).to_string()),
+    //             ]));
+    //         }
+    //         user_info_lines.push(Line::from(vec![
+    //             Span::styled("Score:      ", label_style),
+    //             Span::raw(user_media_details.score.to_string()),
+    //         ]));
+    //         user_info_lines.push(Line::from(vec![
+    //             Span::styled("Start Date: ", label_style),
+    //             Span::raw(user_media_details.started_at.to_string()),
+    //         ]));
+    //         user_info_lines.push(Line::from(vec![
+    //             Span::styled("End Date:   ", label_style),
+    //             Span::raw(user_media_details.completed_at.to_string()),
+    //         ]));
+    //
+    //         frame.render_widget(Paragraph::new(user_info_lines), stats_chunks[1]);
+    //     }
+    //
+    //     let desc_area = vertical_chunks[2];
+    //
+    //     let clean_desc = media_details
+    //         .description
+    //         .replace("<br>\n", "\n")
+    //         .replace("<br>", "\n")
+    //         .replace("<i>", "")
+    //         .replace("</i>", "")
+    //         .replace("<b>", "")
+    //         .replace("</b>", "");
+    //
+    //     let description: Vec<Line> = clean_desc.lines().map(|t| Line::from(t)).collect();
+    //
+    //     let desc_block = Block::default()
+    //         .borders(Borders::TOP)
+    //         .border_style(Style::default().fg(Color::DarkGray))
+    //         .title(" Description ");
+    //
+    //     let p = Paragraph::new(description)
+    //         .block(desc_block)
+    //         .scroll((0, 0))
+    //         .wrap(Wrap { trim: false });
+    //
+    //     frame.render_widget(p, desc_area);
+    // }
 }
