@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' 
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libdbus-1-dev libchafa-dev flatpak flatpak-builder
+
+      - name: Set up Flathub repository
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install Flatpak Runtimes and SDK
+        run: |
+          flatpak install --user -y flathub org.freedesktop.Sdk//25.08
+          flatpak install --user -y flathub org.freedesktop.Platform//25.08
+          flatpak install --user -y flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native release binary
+        run: cargo build --release --locked
+
+      - name: Package native binary
+        run: |
+          mkdir -p dist
+          cp target/release/rani dist/
+          cp anilist-tui.desktop dist/
+          cp assets/icon.svg dist/ || true
+          tar -czf rani-linux-x86_64.tar.gz -C dist rani rani.desktop icon.svg
+
+      - name: Build Flatpak Bundle
+        run: |
+          flatpak-builder --user --repo=repo-dir --force-clean build-dir com.github.zipeks.rani.yml
+          flatpak build-bundle repo-dir rani.flatpak com.github.zipeks.rani
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            rani-linux-x86_64.tar.gz
+            rani.flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

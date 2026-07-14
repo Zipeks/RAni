@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=RAni
+Exec=rani
+Icon=com.github.zipeks.rani
+Terminal=true
+Comment=Unofficial AniList terminal client, written in Rust
+Categories=Utility;ConsoleOnly;
+Keywords=anime;manga;anilist;tui;rust;cli;
+StartupNotify=false

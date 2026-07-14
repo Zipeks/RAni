@@ -2,3 +2,10 @@
 .env
 /logs
 /.idea
+/.flatpak-builder/
+/build-dir/
+/repo-dir/
+/logs/
+flatpak-cargo-generator.py
+cargo-sources.json
+rani.flatpak

@@ -97,6 +97,7 @@ RAni utilizes modal editing (similar to Neovim), splitting interactions into **N
 | `e` | **Open Edit Menu** (Modify status, progress, score, dates) |
 | `f` | **Toggle Favorite** ❤️  |
 | `d` | **Delete Entry** from your AniList  |
+| `r` | Display related media  |
 | `o` | Open selected media anilist page |
 
 ### 🛠️ Edit / Filter Popups (Vim Workflow)
