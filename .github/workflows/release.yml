@@ -49,6 +49,7 @@ jobs:
       - name: Build Flatpak Bundle
         run: |
           rm -rf .git
+          rm -rf .flatpak-builder
           flatpak-builder --user --repo=repo-dir --force-clean build-dir com.github.zipeks.rani.yml
           flatpak build-bundle repo-dir rani.flatpak com.github.zipeks.rani
 
