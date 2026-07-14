@@ -31,6 +31,8 @@ modules:
   - name: rani
     buildsystem: simple
     build-commands:
+      - pwd
+      - ls -la
       - cargo build --offline --release
       
       - install -Dm755 target/release/rani /app/bin/rani
