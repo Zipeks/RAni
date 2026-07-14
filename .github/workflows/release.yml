@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p dist
           cp target/release/rani dist/
-          cp anilist-tui.desktop dist/
+          cp rani.desktop dist/
           cp assets/icon.svg dist/ || true
           tar -czf rani-linux-x86_64.tar.gz -C dist rani rani.desktop icon.svg
 
