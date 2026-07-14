@@ -8,9 +8,8 @@ sdk-extensions:
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
-  env:
-    CARGO_HOME: /run/build/rani/cargo     
-    CARGO_NET_OFFLINE: 'true'              
+  build-args:
+    - --share=network  
 
 command: rani
 
@@ -31,17 +30,12 @@ modules:
   - name: rani
     buildsystem: simple
     build-commands:
-      - pwd
-      - ls -la
-      - cargo build --offline --release
+      - cargo build --release
       
       - install -Dm755 target/release/rani /app/bin/rani
       - install -Dm644 rani.desktop /app/share/applications/${FLATPAK_ID}.desktop
       - install -Dm644 assets/icon.svg /app/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
       
     sources:
-      - type: git
-        url: https://github.com/Zipeks/RAni.git
-        branch: main
-
-      - cargo-sources.json 
+      - type: dir
+        path: .
