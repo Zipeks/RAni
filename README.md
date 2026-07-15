@@ -34,23 +34,47 @@ https://github.com/user-attachments/assets/dce97ff0-b236-48ca-b40a-a4f6362089c7
   - Modify custom scores and repeat/rewatch counters.
   - Add and delete entries directly from your TUI.
 
-## 🚀 Installation  <a id="installation"></a>
+## 🚀 Installation <a id="installation"></a>
 
-RAni is built with Rust and requires a few system libraries to compile properly, mainly **Chafa** (for rendering high-quality terminal graphics) and **D-Bus** (for secure token storage).
+RAni offers multiple installation methods depending on your Linux distribution and preferences.
 
-### 1. Install System Dependencies
-
-Before compiling, ensure you have the Rust toolchain, a C compiler, `pkg-config`, and the required development libraries installed.
-
-**Arch Linux / Manjaro / CachyOS:**
-
+### Option 1: Flatpak (Universal & Recommended)
+You can install RAni as a self-contained Flatpak bundle on any Linux distribution. This method bundles all required dependencies automatically.
+1. Download `rani.flatpak` from the [Latest Release](https://github.com/Zipeks/RAni/releases).
+2. Install it via terminal:
 ```bash
-sudo pacman -S rust base-devel pkgconf chafa dbus
+flatpak install rani.flatpak
+```
+3. Add alias to your shell file (optional)
+```bash
+alias rani="flatpak run com.github.zipeks.rani"
 ```
 
-### 2. Install the Application
 
-####  From Source (Cargo)
+### Option 2: Pre-built Binary
+You can download the pre-compiled native binary (`rani-linux-x86_64.tar.gz`) from the [Releases](https://github.com/Zipeks/RAni/releases) page. 
+Simply extract the archive and run the `rani` executable, or move it to a directory in your `$PATH` (e.g., `~/.local/bin/`).
+
+---
+
+### Option 3: From Source (Cargo)
+RAni is built with Rust and requires a few system libraries to compile properly, mainly **Chafa** (for rendering high-quality terminal graphics) and **D-Bus** (for secure token storage).
+
+**1. Install System Dependencies:**
+- **Arch Linux / CachyOS:**
+  ```bash
+  sudo pacman -S rust base-devel pkgconf chafa dbus
+  ```
+- **Ubuntu / Debian:**
+  ```bash
+  sudo apt install cargo build-essential pkg-config libchafa-dev libdbus-1-dev
+  ```
+- **Fedora:**
+  ```bash
+  sudo dnf install cargo gcc pkgconf-pkg-config chafa-devel dbus-devel
+  ```
+
+**2. Build and Install:**
 You can build and install the binary directly from GitHub using Cargo. The executable will be placed in your `~/.cargo/bin` directory.
 
 ```bash
@@ -58,17 +82,7 @@ git clone https://github.com/Zipeks/RAni.git
 cd RAni
 cargo install --path .
 ```
-
 *(Make sure `~/.cargo/bin` is added to your system's `$PATH`).*
-
-### Add desktop entry (optional)
-If you want to run RAni directly from your app launcher, run this commands:
-```bash
-cd assets
-RAni.desktop ~/.local/share/applications
-mkdir -p \~/.local/share/icons/hicolor/scalable/apps/
-cp rani.svg \~/.local/share/icons/hicolor/scalable/apps
-```
 
 ## 🎮 Keybindings <a id="keybindings"></a>
 
