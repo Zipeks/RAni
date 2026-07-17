@@ -616,7 +616,6 @@ impl App {
         }
 
         let media_id = edited_media.media_id;
-
         let is_top_details = matches!(self.view_stack.last(), Some(PanelState::Details(_)));
 
         self.is_loading = true;
@@ -624,6 +623,8 @@ impl App {
         let tx_clone = tx.clone();
         let tx_for_action = tx_clone.clone();
         let client_for_action = client_clone.clone();
+
+        let saved_data = edited_media.clone();
 
         tokio::spawn(async move {
             let res = client_clone.update_entry(&edited_media).await;
@@ -641,22 +642,36 @@ impl App {
                         app.active_popup = None;
                         app.edited_media = None;
 
-                        if is_top_details {
-                            app.fetch_media_details_by_id(
-                                client_for_action.clone(),
-                                tx_for_action.clone(),
-                                media_id,
-                                true,
-                            );
+                        for panel in app.view_stack.iter_mut() {
+                            if let PanelState::RelationsList(items, _) = panel {
+                                for item in items.iter_mut() {
+                                    if item.id == saved_data.media_id {
+                                        item.progress = Some(saved_data.progress);
+                                        item.status = Some(saved_data.status);
+                                    }
+                                }
+                            }
                         }
 
                         match app.current_view {
                             CurrentView::UserAnime | CurrentView::UserManga => {
-                                app.fetch_user_media(client_for_action, tx_for_action);
+                                app.fetch_user_media(
+                                    client_for_action.clone(),
+                                    tx_for_action.clone(),
+                                );
                             }
                             CurrentView::BrowseAnime | CurrentView::BrowseManga => {
-                                app.fetch_browse(client_for_action, tx_for_action);
+                                app.fetch_browse(client_for_action.clone(), tx_for_action.clone());
                             }
+                        }
+
+                        if is_top_details {
+                            app.fetch_media_details_by_id(
+                                client_for_action,
+                                tx_for_action,
+                                media_id,
+                                true,
+                            );
                         }
                     }
                     Err(e) => {
