@@ -43,8 +43,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "Default".to_string())),
             format!("Format:       {}", filter.format.map(|f| f.to_string()).unwrap_or_else(|| "Any".to_string())),
-            format!("Season:       {}", filter.season.map(|s| s.to_string()).unwrap_or_else(|| "Any".to_string())),
             format!("Status:       {}", filter.status.map(|s| s.to_string()).unwrap_or_else(|| "Any".to_string())),
+            format!("Season:       {}", filter.season.map(|s| s.to_string()).unwrap_or_else(|| "Any".to_string())),
             format!("Year:         {}", app.filter_year_text),
         ]
     };
