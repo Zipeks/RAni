@@ -1,16 +1,19 @@
 use graphql_client::{GraphQLQuery, Response};
 use moka::future::Cache;
 use reqwest::{Client, header};
-use tracing::info;
 use std::{error::Error, time::Duration};
+use tracing::info;
 
-use crate::{anilist::anilist_types::{
-    DeleteMediaListEntry, GetBasicViewer, GetMedia, GetMediaDetails, GetUserMediaList,
-    ToggleFavourite, UpdateEntry, delete_media_list_entry, get_basic_viewer, get_media,
-    get_media_details, get_user_media_list, toggle_favourite, update_entry,
-}, app_helper_structs::UserSearchFilter};
-pub use crate::app_helper_structs::{MediaType};
+pub use crate::app_helper_structs::MediaType;
 use crate::app_helper_structs::{SearchFilter, UserMediaDetails};
+use crate::{
+    anilist::anilist_types::{
+        DeleteMediaListEntry, GetBasicViewer, GetMedia, GetMediaDetails, GetUserMediaList,
+        ToggleFavourite, UpdateEntry, delete_media_list_entry, get_basic_viewer, get_media,
+        get_media_details, get_user_media_list, toggle_favourite, update_entry,
+    },
+    app_helper_structs::UserSearchFilter,
+};
 
 #[derive(Clone)]
 pub struct AnilistClient {
@@ -77,7 +80,6 @@ impl AnilistClient {
         per_page: Option<i64>,
         type_: MediaType,
     ) -> Result<get_user_media_list::ResponseData, Box<dyn std::error::Error + Sync + Send>> {
-
         let mapped_sort = filter.sort.map(|s| s.into_iter().map(Some).collect());
 
         let variables = get_user_media_list::Variables {
