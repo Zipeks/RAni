@@ -12,14 +12,40 @@ pub fn draw(
     current_view: CurrentView,
     title_language: &TitleLanguage,
 ) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(if is_active {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        })
+        .border_type(BorderType::Rounded)
+        .title(Line::from(title_spans).centered())
+        .title_bottom(Line::from(page_info).centered());
+
+    if items.is_empty() {
+        let empty_msg = Paragraph::new("\n\nNothing here...")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center)
+            .block(block);
+
+        frame.render_widget(empty_msg, area);
+        return;
+    }
+    let selected_idx = state.selected();
+
     let rows: Vec<Row> = items
         .iter()
-        .map(|item| {
+        .enumerate()
+        .map(|(i, item)| {
+            let is_selected = selected_idx == Some(i);
+
             let progress = item.progress.unwrap_or(0);
             let total = match item.total {
                 None => "?".to_string(),
                 Some(x) => x.to_string(),
             };
+
             let progress_str = match current_view {
                 CurrentView::UserAnime | CurrentView::UserManga => {
                     format!("{}/{} ", progress, total)
@@ -34,6 +60,24 @@ pub fn draw(
                 }
             };
 
+            let is_behind_airing = match current_view {
+                CurrentView::UserAnime | CurrentView::UserManga => {
+                    if let Some(airing) = &item.next_airing_episode {
+                        let released_episodes = airing.episode.saturating_sub(1);
+                        progress < released_episodes
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+
+            let progress_style = if is_behind_airing {
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Cyan)
+            };
+
             let airing_str = if let Some(ref airing) = item.next_airing_episode {
                 let time_until_airing = airing.time_until_airing;
 
@@ -41,12 +85,11 @@ pub fn draw(
                     let days = time_until_airing / 86400;
                     let hours = (time_until_airing % 86400) / 3600;
                     let mins = (time_until_airing % 3600) / 60;
-                    match (days, hours) {
-                        (0, 0) => format!("Ep {}: {}min", airing.episode, mins),
-                        (0, _) => format!("Ep {}: {}h {}min", airing.episode, hours, mins),
-                        (_, _) => {
-                            format!("Ep {}: {}d {}h {}min", airing.episode, days, hours, mins)
-                        }
+
+                    if days > 0 {
+                        format!("Ep {}: {}d {}h {}min", airing.episode, days, hours, mins)
+                    } else {
+                        format!("Ep {}: in {}h {}min", airing.episode, hours, mins)
                     }
                 } else {
                     format!("Ep {} is out! ", airing.episode)
@@ -54,18 +97,48 @@ pub fn draw(
             } else {
                 String::new()
             };
-            let display_title = item.titles.get_title(&title_language).to_string();
-            let airing_cell = Cell::from(airing_str).style(Style::default().fg(Color::Magenta));
+
+            let display_title = item.titles.get_title(title_language).to_string();
+
+            let title_style = if is_selected {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Magenta)
+            };
+
+            let bullet = if is_selected {
+                Span::styled(
+                    " ❯ ",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(" ● ", Style::default().fg(Color::DarkGray))
+            };
 
             Row::new(vec![
-                Cell::from(Span::styled(" ● ", Style::default().fg(Color::Cyan))),
-                Cell::from(display_title),
-                airing_cell,
-                Cell::from(Line::from(progress_str).alignment(Alignment::Right))
-                    .style(Style::default().fg(Color::Cyan)),
+                Cell::from(bullet),
+                Cell::from(Span::styled(display_title, title_style)),
+                Cell::from(Span::styled(airing_str, {
+                    if is_selected {
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::Magenta)
+                    }
+                })),
+                Cell::from(
+                    Line::from(Span::styled(progress_str, progress_style))
+                        .alignment(Alignment::Right),
+                ),
             ])
         })
         .collect();
+
     let header_row = Row::new(vec![
         Cell::from(""),
         Cell::from("Title"),
@@ -79,7 +152,7 @@ pub fn draw(
                 CurrentView::BrowseAnime => "Avg score ",
                 CurrentView::BrowseManga => "Avg score ",
             })
-            .right_aligned(),
+            .alignment(Alignment::Right),
         ),
     ])
     .style(
@@ -99,20 +172,7 @@ pub fn draw(
         ],
     )
     .header(header_row)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(if is_active {
-                Style::default().fg(Color::Cyan)
-            } else {
-                Style::default().fg(Color::DarkGray)
-            })
-            .border_type(BorderType::Rounded)
-            .title(Line::from(title_spans).centered())
-            .title_bottom(Line::from(page_info).centered()),
-    )
-    // .highlight_symbol(">> ")
-    .row_highlight_style(Style::default().yellow());
+    .block(block);
 
     frame.render_stateful_widget(table_widget, area, state);
 }
